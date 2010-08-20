@@ -70,6 +70,9 @@ public abstract class AbstractPSGraphics2D extends AbstractVectorGraphicsIO impl
     public static final String FIT_TO_PAGE = rootKey + "."
             + PageConstants.FIT_TO_PAGE;
 
+    public static final String CENTER_ON_PAGE = rootKey + "."
+            + PageConstants.CENTER_ON_PAGE;
+
     public static final String EMBED_FONTS = rootKey + "."
             + FontConstants.EMBED_FONTS;
 
@@ -97,6 +100,7 @@ public abstract class AbstractPSGraphics2D extends AbstractVectorGraphicsIO impl
                 .getMargins(PageConstants.SMALL));
         defaultProperties.setProperty(ORIENTATION, PageConstants.PORTRAIT);
         defaultProperties.setProperty(FIT_TO_PAGE, true);
+        defaultProperties.setProperty(CENTER_ON_PAGE, true);
         defaultProperties.setProperty(EMBED_FONTS, false);
         defaultProperties.setProperty(TEXT_AS_SHAPES, false);
         defaultProperties.setProperty(EMBED_FONTS_AS,
@@ -134,12 +138,37 @@ public abstract class AbstractPSGraphics2D extends AbstractVectorGraphicsIO impl
 
     private int postscriptLevel = LEVEL_3;
 
+    // Location on the page
+    private int originX = 0;
+    private int originY = 0;
+
 	public AbstractPSGraphics2D(Dimension size, boolean doRestoreOnDispose) {
 		super(size, doRestoreOnDispose);
 	}
 
 	public AbstractPSGraphics2D(Component component, boolean doRestoreOnDispose) {
 		super(component, doRestoreOnDispose);
+	}
+
+    // Helper, used by constructors.
+    private void setOrigin(int X, int Y) {
+        originX = X;
+        originY = Y;
+        setCenterOnPage(false);
+    }
+
+    public AbstractPSGraphics2D(Rectangle bbox, boolean doRestoreOnDispose) {
+		super(new Dimension(bbox.width, bbox.height), doRestoreOnDispose);
+        setOrigin(bbox.x, bbox.y);
+	}
+
+    public AbstractPSGraphics2D(Rectangle bbox, boolean doRestoreOnDispose,
+                                int psLangLevel) {
+		super(new Dimension(bbox.width, bbox.height), doRestoreOnDispose);
+        setOrigin(bbox.x, bbox.y);
+        // Ignore invalid language level -- use default, level 3
+        if (psLangLevel > 1 && psLangLevel < 4)
+            postscriptLevel = psLangLevel;
 	}
 
     /**
@@ -157,6 +186,9 @@ public abstract class AbstractPSGraphics2D extends AbstractVectorGraphicsIO impl
         ros = graphics.ros;
         os = graphics.os;
         fontTable = graphics.fontTable;
+        postscriptLevel = graphics.postscriptLevel;
+        originX = graphics.originX;
+        originY = graphics.originY;
     }
 
     protected void init(OutputStream os) {
@@ -175,6 +207,17 @@ public abstract class AbstractPSGraphics2D extends AbstractVectorGraphicsIO impl
         defaultProperties.setProperty(CLIP, enabled);
     }
 
+    /**
+     * Set the center-on-page flag: when true, the graphic is centered horizontally
+     * and vertically on the output page. This flag must be set before the page in question
+     * is opened, otherwise it has no effect By default CENTER_ON_PAGE is true.
+     *
+     * @param enabled turns page centering on (true) and off (false)
+     */
+    public void setCenterOnPage(boolean enabled) {
+        defaultProperties.setProperty(CENTER_ON_PAGE, enabled);
+    }
+    
     /**
      * Write out the header of this EPS file.
      */
@@ -232,6 +275,9 @@ public abstract class AbstractPSGraphics2D extends AbstractVectorGraphicsIO impl
 
     public void writeTrailer() throws IOException {
         os.println();
+        os.println("end % printColorMap dictionary\n");
+        os.println("end % procDict dictionary\n");
+        os.println("restore % matches save\n");
         os.println("%%Trailer");
     }
 
@@ -269,23 +315,35 @@ public abstract class AbstractPSGraphics2D extends AbstractVectorGraphicsIO impl
     }
 
     protected void openPage(Dimension size, String title, Component component) {
-        if (size == null) {
-            size = component.getSize();
-        }
-        resetClip(new Rectangle(0, 0, size.width, size.height));
 
         // Our PS Header has internal page orientation mode, all sizes given in
         // portrait
         Dimension pageSize = getPageSize();
         Insets margins = getPropertyInsets(PAGE_MARGINS);
 
+        // Compute origin translation. FreeHEP uses upper left corner as origin, but
+        // PostScript expects lower left as origin. Translate graphics "up" by their
+        // height to account for this difference in opinion.
+        double dx = originX;
+        double dy = originY + size.getHeight();
+
+        if (size == null) {
+            size = component.getSize();
+        }
+        resetClip(new Rectangle(0, 0, size.width, size.height));
+
         os.println("save");
         os.println("procDict begin");
         os.println("printColorMap begin");
+        os.println("% Initialize the fill color.\n" + "0 0 0 rg\n");
         os.println(pageSize.width + " " + pageSize.height + " setpagesize");
         os.println(margins.left + " " + margins.bottom + " " + margins.top
                 + " " + margins.right + " setmargins");
-        os.println("0 0 setorigin");
+        // Pay attention to user-specified origin. Only call setorigin to override the default
+        // image-centering behavoir when CENTER_ON_PAGE is false.
+        if (!isProperty(CENTER_ON_PAGE)) {
+            os.println((int)dx + " " + (int)dy + " setorigin");
+        }
         os.println(size.width + " " + size.height + " setsize");
         os.println(isProperty(FIT_TO_PAGE) ? "fittopage" : "naturalsize");
         os.println(getProperty(ORIENTATION).equals(PageConstants.PORTRAIT) ? "portrait" : "landscape");
@@ -512,7 +570,13 @@ public abstract class AbstractPSGraphics2D extends AbstractVectorGraphicsIO impl
     }
 
     protected void writeSetClip(Shape s) throws IOException {
-        os.println("cliprestore");
+        if  (postscriptLevel >= LEVEL_3)
+            os.println("cliprestore");
+        else {
+            //Dimension size = getSize();
+            //os.println("0 0 " + size.width + " " + size.height + " clip");
+            os.println("cliptobounds");
+        }
         writeClip(s);
     }
 

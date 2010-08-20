@@ -256,9 +256,9 @@ public abstract class AbstractVectorGraphicsIO extends VectorGraphicsIO {
 
     public void endExport() {
         try {
-            dispose();
             writeTrailer();
             closeStream();
+            dispose();    // needs to go last; can't call other methods after disposing
         } catch (IOException e) {
             handleException(e);
         }

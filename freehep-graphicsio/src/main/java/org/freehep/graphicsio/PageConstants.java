@@ -124,6 +124,9 @@ public class PageConstants {
     // Fit
     public static final String FIT_TO_PAGE = "FitToPage";
 
+    // Center
+    public static final String CENTER_ON_PAGE = "CenterOnPage";
+
     // FIXME: should move?
     public static final String TRANSPARENT = "Transparent";
 

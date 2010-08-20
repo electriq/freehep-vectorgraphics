@@ -225,6 +225,10 @@ public class PDFGraphics2D extends AbstractVectorGraphicsIO implements
 
 	private List<String> titles;
 
+    // Location on the page
+    private int originX = -1;
+    private int originY = -1;
+
 	// extra pointers
 	int alphaIndex;
 
@@ -250,6 +254,14 @@ public class PDFGraphics2D extends AbstractVectorGraphicsIO implements
 		super(size, false);
 		init(ros);
 	}
+
+    public PDFGraphics2D(OutputStream ros, Rectangle bbox) {
+		super(new Dimension(bbox.width, bbox.height), false);
+        originX = bbox.x;
+        originY = bbox.y;
+		init(ros);
+	}
+
 
 	public PDFGraphics2D(OutputStream ros, Component component) {
 		super(component, false);
@@ -550,9 +562,22 @@ public class PDFGraphics2D extends AbstractVectorGraphicsIO implements
 			scaleFactor = 1;
 		}
 
-		// 3. center the image on the page
-		double dx = (getWidth() - size.width * scaleFactor) / 2 / scaleFactor;
-		double dy = (getHeight() - size.height * scaleFactor) / 2 / scaleFactor;
+		// 3. center the image on the page if no origin specified
+
+		double dx = originX;
+		double dy = originY;
+
+        if (dx < 0 && dy < 0)
+        {
+            dx = (getWidth() - size.width * scaleFactor) / 2 / scaleFactor;
+            dy = (getHeight() - size.height * scaleFactor) / 2 / scaleFactor;
+        }
+        else
+        {
+            dx = dx - margins.left;
+            dy = pageSize.height - (dy + (size.height * scaleFactor) + margins.top);
+        }
+
 		pageTrafo.translate(dx, dy);
 
 		writeTransform(pageTrafo);

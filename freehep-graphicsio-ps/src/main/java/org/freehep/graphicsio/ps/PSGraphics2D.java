@@ -45,6 +45,16 @@ public class PSGraphics2D extends AbstractPSGraphics2D implements
         init(os);
     }
 
+    public PSGraphics2D(OutputStream ros, Rectangle bbox) {
+		super(bbox, false);
+        init(ros);
+    }
+
+    public PSGraphics2D(OutputStream ros, Rectangle bbox, int psLangLevel) {
+		super(bbox, false, psLangLevel);
+        init(ros);
+    }
+
     protected PSGraphics2D(PSGraphics2D graphics, boolean doRestoreOnDispose) {
     	super(graphics, doRestoreOnDispose);
         multiPage = graphics.multiPage;

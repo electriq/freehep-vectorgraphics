@@ -42,9 +42,6 @@
 /rg {3 array astore /vg&fcolor exch def} def
 /RG {setrgbcolor} def
 
-% Initialize the fill color.
-0 0 0 rg
-
 /vg&FC {mark vg&fcolor aload pop
         counttomark 1 eq {G} if
         counttomark 3 eq {RG} if
@@ -115,12 +112,15 @@
 } def
 /vg&resetdash {currentdash pop vg&doffset setdash} def
 
-% Initialize variables for safety.
+% Initialize variables for safety. EPS requires initialization of ALL 
+% variables before use in procedures.
 /delta 0 def
 /xv 0 def  /yv 0 def  /width 0 def  /height 0 def
+/gx 0 def /gy 0 def /gh 0 def /gw 0 def
+/sfactor 1 def
 
 % Initialize to portrait INTERNATIONAL (Letter-height, A4-width) page.
-/pw 595 def  /ph 791  def  /po true def /ftp false def
+/pw 595 def  /ph 791  def  /po true def /ftp false def /so false def
 
 % Initialize margins to 20 points.
 /ml 20 def  /mr 20 def  /mt 20 def  /mb 20 def
@@ -148,7 +148,7 @@
 /setsize {/gh exch def /gw exch def} def
 
 % set the graphic's origin (usage: <x0><y0> setorigin)
-/setorigin {/gy exch def /gx exch def} def
+/setorigin {/gy exch def /gx exch def /so true def} def
 
 % calculate image center
 /imagecenter {pw ml sub mr sub 2 div ml add
@@ -162,27 +162,34 @@
              1 exch div /sfactor exch def
              /gw gw sfactor mul def /gh gh sfactor mul def} def
 
-% calculate image origin
-/imageorigin {pw ml sub mr sub 2 div ml add
+% origin specified by user. gx and gy are the lower left corner of the
+% graphics bounding box, specified in the PostScript system -- 0,0 is the 
+% lower left corner of the page, with Y increasing towards the top.
+/userorigin {gx gy} def
+
+% calculate image origin to place image in the center of the page.
+/centerorigin {pw ml sub mr sub 2 div ml add
               po {gw}{gh} ifelse 2 div sub
               ph mt sub mb sub 2 div mb add
               po {gh}{gw} ifelse 2 div po {add}{sub} ifelse} def
 
 % calculate the clipping origin
-/cliporigin  {pw ml sub mr sub 2 div ml add
+/centerclip  {pw ml sub mr sub 2 div ml add
               po {gw}{gh} ifelse 2 div sub floor
               ph mt sub mb sub 2 div mb add
               po {gh}{gw} ifelse 2 div sub floor} def
 
-% Set the clipping region to the bounding box.
-/cliptobounds {cliporigin po {gw}{gh} ifelse 1 add
-                          po {gh}{gw} ifelse 1 add rc} def
+% Set the clipping region to the bounding box. Use the appropriate origin.
+/cliptobounds {so {userorigin}{centerclip} ifelse
+               po {gw}{gh} ifelse 1 add
+               po {gh}{gw} ifelse 1 add rc} def
 
-% set the base transformation matrix (usage: setbasematrix)
-/setbasematrix {imageorigin translate
-                po {0}{90} ifelse rotate
-                sfactor sfactor neg scale
-                /defaultmatrix matrix currentmatrix def} def
+% set the base transformation matrix (usage: setbasematrix). 
+/setbasematrix {
+    so {userorigin}{centerorigin} ifelse translate
+    po {0}{90} ifelse rotate
+    sfactor sfactor neg scale 
+    /defaultmatrix matrix currentmatrix def} def
 
 % The lower-right bias in drawing 1 pt. wide lines.
 /bias  {q 0.5 0.5 translate} def
