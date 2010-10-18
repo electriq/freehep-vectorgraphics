@@ -1,4 +1,5 @@
 // Copyright 2000, CERN, Geneva, Switzerland and University of Santa Cruz, California, U.S.A.
+// Modified by The MathWorks (www.mathworks.com), Oct. 2010
 package org.freehep.graphicsio;
 
 import java.awt.Dimension;
@@ -13,6 +14,7 @@ import java.util.Map;
  * 
  * @author Charles Loomis
  * @author Mark Donszelmann
+ * @author Peter Webb (for The MathWorks)
  * @version $Id: freehep-graphicsio/src/main/java/org/freehep/graphicsio/PageConstants.java 8b39cdff4c34 2007/01/03 18:59:24 duns $
  */
 public class PageConstants {

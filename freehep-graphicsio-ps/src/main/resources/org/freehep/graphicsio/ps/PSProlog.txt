@@ -3,6 +3,7 @@
 %
 % File: org/freehep/graphicsio.ps/PSProlog.txt
 % Author: Charles Loomis
+% Modified by Peter Webb (for The MathWorks, www.mathworks.com), Oct. 2010
 %
 
 % Redefinitions which save some space in the output file.  These are also

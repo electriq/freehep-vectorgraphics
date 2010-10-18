@@ -1,4 +1,5 @@
 // Copyright 2000-2009, FreeHEP
+// Modified by The MathWorks (www.mathworks.com), Oct. 2010
 package org.freehep.graphicsio;
 
 import java.awt.AlphaComposite;
@@ -55,6 +56,7 @@ import org.freehep.util.images.ImageUtilities;
  * @author Charles Loomis
  * @author Mark Donszelmann
  * @author Steffen Greiffenberg
+ * @author Peter Webb (for The MathWorks)
  */
 public abstract class AbstractVectorGraphicsIO extends VectorGraphicsIO {
 

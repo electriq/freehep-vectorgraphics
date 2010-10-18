@@ -1,4 +1,5 @@
 // Copyright 2000-2007, FreeHEP
+// Modified by The MathWorks (www.mathworks.com), Oct. 2010
 package org.freehep.graphicsio.pdf;
 
 import java.awt.BasicStroke;
@@ -56,6 +57,7 @@ import org.freehep.util.UserProperties;
  * 
  * @author Simon Fischer
  * @author Mark Donszelmann
+ * @author Peter Webb (for The MathWorks)
  * @version $Id: freehep-graphicsio-pdf/src/main/java/org/freehep/graphicsio/pdf/PDFGraphics2D.java 59372df5e0d9 2007/02/06 21:11:19 duns $
  */
 public class PDFGraphics2D extends AbstractVectorGraphicsIO implements

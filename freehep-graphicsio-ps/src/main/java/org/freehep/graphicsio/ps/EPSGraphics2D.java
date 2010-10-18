@@ -1,4 +1,5 @@
 // Copyright 2007 FreeHEP
+// Modified by The MathWorks (www.mathworks.com), Oct. 2010
 package org.freehep.graphicsio.ps;
 
 import java.awt.Component;
@@ -18,6 +19,7 @@ import org.freehep.graphicsio.PageConstants;
 /**
  * Writes Encapsulated PostScript with bounding box.
  * @author duns
+ * @author Peter Webb (for The MathWorks)
  * @version $Id: freehep-graphicsio-ps/src/main/java/org/freehep/graphicsio/ps/EPSGraphics2D.java bed5e3a39f35 2007/09/10 18:13:00 duns $
  */
 public class EPSGraphics2D extends AbstractPSGraphics2D {
