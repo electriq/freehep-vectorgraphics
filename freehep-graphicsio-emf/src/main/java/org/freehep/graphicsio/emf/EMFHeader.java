@@ -12,7 +12,7 @@ import java.io.IOException;
  * @version $Id: freehep-graphicsio-emf/src/main/java/org/freehep/graphicsio/emf/EMFHeader.java 39340faa2114 2007/02/12 08:14:31 duns $
  */
 public class EMFHeader implements EMFConstants {
-    private static final Dimension screenMM = new Dimension(320, 240);
+    private static Dimension screenMM = new Dimension(320, 240);
 
     private Rectangle bounds;
 
@@ -46,6 +46,9 @@ public class EMFHeader implements EMFConstants {
             int bytes, int records, int handles, String application,
             String name, Dimension device) {
         this.bounds = bounds;
+        
+        // Image size must be independent of screen!!! // Levantovsky, MagicPlot
+        screenMM = device;
 
         // this assumes you use MM_ANISOTROPIC or MM_ISOTROPIC as MapMode
         double pixelWidth = (double) screenMM.width / device.width;

@@ -16,6 +16,7 @@ import java.awt.Shape;
 import java.awt.Stroke;
 import java.awt.TexturePaint;
 import java.awt.Toolkit;
+import java.awt.font.TextAttribute;
 import java.awt.geom.AffineTransform;
 import java.awt.geom.GeneralPath;
 import java.awt.image.BufferedImage;
@@ -34,6 +35,7 @@ import java.util.Properties;
 import org.freehep.graphics2d.PrintColor;
 import org.freehep.graphics2d.VectorGraphics;
 import org.freehep.graphics2d.font.FontEncoder;
+import org.freehep.graphics2d.font.FontMap;
 import org.freehep.graphics2d.font.FontUtilities;
 import org.freehep.graphicsio.AbstractVectorGraphicsIO;
 import org.freehep.graphicsio.PageConstants;
@@ -77,6 +79,7 @@ import org.freehep.util.images.ImageUtilities;
  * Enhanced Metafile Format Graphics 2D driver.
  *
  * @author Mark Donszelmann
+ * @author Alexander Levantovsky, MagicPlot
  * @version $Id: freehep-graphicsio-emf/src/main/java/org/freehep/graphicsio/emf/EMFGraphics2D.java 59372df5e0d9 2007/02/06 21:11:19 duns $
  */
 public class EMFGraphics2D extends AbstractVectorGraphicsIO implements
@@ -138,7 +141,7 @@ public class EMFGraphics2D extends AbstractVectorGraphicsIO implements
     static {
         defaultProperties.setProperty(TRANSPARENT, true);
         defaultProperties.setProperty(BACKGROUND, false);
-        defaultProperties.setProperty(BACKGROUND_COLOR, Color.GRAY);
+        defaultProperties.setProperty(BACKGROUND_COLOR, Color.white);
         defaultProperties.setProperty(CLIP, true);
         // NOTE: using TEXT_AS_SHAPES makes the text shapes quite unreadable.
         defaultProperties.setProperty(TEXT_AS_SHAPES, false);
@@ -223,12 +226,15 @@ public class EMFGraphics2D extends AbstractVectorGraphicsIO implements
     /* 3.1 Header & Trailer */
     public void writeHeader() throws IOException {
         ros = new BufferedOutputStream(ros);
-        Dimension device = isDeviceIndependent() ? new Dimension(1024, 768)
-                : Toolkit.getDefaultToolkit().getScreenSize();
-        String producer = getClass().getName();
-        if (!isDeviceIndependent()) {
-            producer += " " + version.substring(1, version.length() - 1);
-        }
+        
+        // Image size must be independent of screen!!! // Levantovsky, MagicPlot
+        Dimension device = imageBounds.getSize();
+        /*Dimension device = isDeviceIndependent() ? new Dimension(1024, 768)
+                : Toolkit.getDefaultToolkit().getScreenSize();*/
+        String producer = "FreeHEP VectorGraphics";
+//        if (!isDeviceIndependent()) {
+//            producer += " " + version.substring(1, version.length() - 1);
+//        }
         os = new EMFOutputStream(ros, imageBounds, handleManager, getCreator(),
                 producer, device);
         pathConstructor = new EMFPathConstructor(os, imageBounds);
@@ -425,7 +431,7 @@ public class EMFGraphics2D extends AbstractVectorGraphicsIO implements
         os.writeTag(alphaBlend);
         os.writeTag(new RestoreDC());
     }
-
+    
     /* 5.3. Strings */
     public void writeString(String string, double x, double y)
             throws IOException {
@@ -450,11 +456,7 @@ public class EMFGraphics2D extends AbstractVectorGraphicsIO implements
             os.writeTag(new SetTextColor(textColor));
         }
 
-        // dialog.bold -> Dialog with TextAttribute.WEIGHT_BOLD
-        Map<Attribute, Object> attributes = FontUtilities.getAttributes(getFont());
-        FontTable.normalize(attributes);
-        Font font = new Font(attributes);
-
+        Font font = getFont();
         Font unitFont = unitFontTable.get(font);
 
         Integer fontIndex = fontTable.get(font);
@@ -462,11 +464,11 @@ public class EMFGraphics2D extends AbstractVectorGraphicsIO implements
             // for special fonts (Symbol, ZapfDingbats) we choose a standard
             // font and
             // encode using unicode.
-            String fontName = font.getName();
+            String fontName = font.getFamily();
             string = FontEncoder.getEncodedString(string, fontName);
 
             String windowsFontName = FontUtilities
-                .getWindowsFontName(fontName);
+                .getWindowsFontFamily(fontName);
 
             unitFont = new Font(windowsFontName, font.getStyle(), font
                 .getSize());

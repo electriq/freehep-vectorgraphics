@@ -2,42 +2,21 @@
 // Modified by The MathWorks (www.mathworks.com), Oct. 2010
 package org.freehep.graphicsio.ps;
 
-import java.awt.BasicStroke;
-import java.awt.Color;
-import java.awt.Component;
-import java.awt.Dimension;
-import java.awt.Font;
-import java.awt.GradientPaint;
-import java.awt.Graphics;
-import java.awt.GraphicsConfiguration;
-import java.awt.Insets;
-import java.awt.Paint;
-import java.awt.Rectangle;
-import java.awt.Shape;
-import java.awt.TexturePaint;
+import java.awt.*;
+import java.awt.font.TextAttribute;
 import java.awt.geom.AffineTransform;
 import java.awt.geom.Point2D;
 import java.awt.geom.Rectangle2D;
 import java.awt.image.BufferedImage;
 import java.awt.image.RenderedImage;
-import java.io.BufferedOutputStream;
-import java.io.IOException;
-import java.io.OutputStream;
-import java.io.PrintStream;
+import java.io.*;
 import java.text.DateFormat;
-import java.text.AttributedCharacterIterator.Attribute;
 import java.util.Date;
-import java.util.Map;
 import java.util.Properties;
-
 import org.freehep.graphics2d.TagString;
+import org.freehep.graphics2d.font.CharTable;
 import org.freehep.graphics2d.font.FontUtilities;
-import org.freehep.graphicsio.AbstractVectorGraphicsIO;
-import org.freehep.graphicsio.FontConstants;
-import org.freehep.graphicsio.ImageConstants;
-import org.freehep.graphicsio.ImageGraphics2D;
-import org.freehep.graphicsio.InfoConstants;
-import org.freehep.graphicsio.PageConstants;
+import org.freehep.graphicsio.*;
 import org.freehep.util.ScientificFormat;
 import org.freehep.util.UserProperties;
 import org.freehep.util.images.ImageUtilities;
@@ -46,6 +25,7 @@ import org.freehep.util.images.ImageUtilities;
  * 
  * @author duns
  * @author Peter Webb (for The MathWorks)
+ * @author Alexander Levantovsky, MagicPlot
  * @version $Id: freehep-graphicsio-ps/src/main/java/org/freehep/graphicsio/ps/AbstractPSGraphics2D.java bed5e3a39f35 2007/09/10 18:13:00 duns $
  */
 public abstract class AbstractPSGraphics2D extends AbstractVectorGraphicsIO implements FontUtilities.ShowString {
@@ -81,6 +61,9 @@ public abstract class AbstractPSGraphics2D extends AbstractVectorGraphicsIO impl
     public static final String EMBED_FONTS_AS = rootKey + "."
             + FontConstants.EMBED_FONTS_AS;
 
+    public static final String EMBED_SKIP_STANDARD_FONTS = rootKey + "."
+            + FontConstants.EMBED_SKIP_STANDARD_FONTS;
+
     public static final String FOR = rootKey + "." + InfoConstants.FOR;
 
     public static final String TITLE = rootKey + "." + InfoConstants.TITLE;
@@ -91,6 +74,8 @@ public abstract class AbstractPSGraphics2D extends AbstractVectorGraphicsIO impl
 
     public static final String WRITE_IMAGES_AS = rootKey + "."
             + ImageConstants.WRITE_IMAGES_AS;
+
+    public static final String PDFMARK_TRANSPARENCY = rootKey + ".PDFMarkTransparency";
 
     private static final UserProperties defaultProperties = new UserProperties();
     static {
@@ -103,10 +88,10 @@ public abstract class AbstractPSGraphics2D extends AbstractVectorGraphicsIO impl
         defaultProperties.setProperty(ORIENTATION, PageConstants.PORTRAIT);
         defaultProperties.setProperty(FIT_TO_PAGE, true);
         defaultProperties.setProperty(CENTER_ON_PAGE, true);
-        defaultProperties.setProperty(EMBED_FONTS, false);
+        defaultProperties.setProperty(EMBED_FONTS, true);
         defaultProperties.setProperty(TEXT_AS_SHAPES, false);
-        defaultProperties.setProperty(EMBED_FONTS_AS,
-                FontConstants.EMBED_FONTS_TYPE3);
+        defaultProperties.setProperty(EMBED_FONTS_AS, FontConstants.EMBED_FONTS_TYPE3);
+        defaultProperties.setProperty(EMBED_SKIP_STANDARD_FONTS, true);
 
         defaultProperties.setProperty(FOR, "");
         defaultProperties.setProperty(TITLE, "");
@@ -114,10 +99,11 @@ public abstract class AbstractPSGraphics2D extends AbstractVectorGraphicsIO impl
         defaultProperties.setProperty(PREVIEW, false);
         defaultProperties.setProperty(PREVIEW_BITS, 8);
 
-        defaultProperties.setProperty(WRITE_IMAGES_AS, ImageConstants.SMALLEST);
+        defaultProperties.setProperty(WRITE_IMAGES_AS, ImageConstants.ZLIB);
 
         defaultProperties.setProperty(CLIP, true);
-        defaultProperties.setProperty(TEXT_AS_SHAPES, true);
+        
+        defaultProperties.setProperty(PDFMARK_TRANSPARENCY, false);
     }
 
     public static Properties getDefaultProperties() {
@@ -134,9 +120,13 @@ public abstract class AbstractPSGraphics2D extends AbstractVectorGraphicsIO impl
     private PSFontTable fontTable;
 
     // The private writer used for this file.
-    protected OutputStream ros;
+    protected ByteArrayOutputStream ros;
+    
+    protected OutputStream imedRos;
 
     protected PrintStream os;
+    
+    protected PrintStream imedOs;
 
     private int postscriptLevel = LEVEL_3;
 
@@ -193,10 +183,25 @@ public abstract class AbstractPSGraphics2D extends AbstractVectorGraphicsIO impl
         originY = graphics.originY;
     }
 
-    protected void init(OutputStream os) {
-        ros = new BufferedOutputStream(os);
+    protected void init(OutputStream outputStream) {
+        imedRos = new BufferedOutputStream(outputStream);
+        try {
+          imedOs = new PrintStream(imedRos, true, "ISO-8859-1");
+        }
+        catch (UnsupportedEncodingException ex) {
+          imedOs = new PrintStream(imedRos, true);
+        }
+              
+        ros = new ByteArrayOutputStream();
+        try {
+          os = new PrintStream(ros, true, "ISO-8859-1");
+        }
+        catch (UnsupportedEncodingException ex) {
+          os = new PrintStream(ros, true);
+        }
+
         initProperties(defaultProperties);
-        fontTable = new PSFontTable(ros, getFontRenderContext());
+        fontTable = new PSFontTable(imedRos, getFontRenderContext());
     }
 
     /**
@@ -224,10 +229,12 @@ public abstract class AbstractPSGraphics2D extends AbstractVectorGraphicsIO impl
      * Write out the header of this EPS file.
      */
     public void writeHeader() throws IOException {
-        String producer = getClass().getName();
-        if (!isDeviceIndependent()) {
-            producer += " " + version.substring(1, version.length() - 1);
-        }
+        PrintStream os = imedOs;
+      
+        String producer = "FreeHEP VectorGraphics";
+//        if (!isDeviceIndependent()) {
+//            producer += " " + version.substring(1, version.length() - 1);
+//        }
         os.println("%%Creator: " + getCreator());
         os.println("%%Producer: " + producer);
         os.println("%%For: " + getProperty(FOR));
@@ -276,6 +283,15 @@ public abstract class AbstractPSGraphics2D extends AbstractVectorGraphicsIO impl
     }
 
     public void writeTrailer() throws IOException {
+        // Fonts must be writen before used. 
+        // But we cannot write fonts before using because 
+        // we don't know which glyphs will be needed
+        fontTable.embedAll(isProperty(EMBED_FONTS), !isProperty(EMBED_SKIP_STANDARD_FONTS), getProperty(EMBED_FONTS_AS));
+      
+        os.flush();
+        imedRos.write(ros.toByteArray());
+        
+        PrintStream os = imedOs;
         os.println();
         os.println("end % printColorMap dictionary\n");
         os.println("end % procDict dictionary\n");
@@ -284,8 +300,8 @@ public abstract class AbstractPSGraphics2D extends AbstractVectorGraphicsIO impl
     }
 
     public void closeStream() throws IOException {
-        ros.close();
-        os.close();
+        imedRos.close();
+        imedOs.close();
     }
 
 
@@ -313,7 +329,7 @@ public abstract class AbstractPSGraphics2D extends AbstractVectorGraphicsIO impl
             result = PageConstants.getSize(PageConstants.A4);
         }
 
-        return result;
+        return isProperty(ALLOW_RESIZING_AND_MARGINS) ? result : getSize();
     }
 
     protected void openPage(Dimension size, String title, Component component) {
@@ -321,7 +337,7 @@ public abstract class AbstractPSGraphics2D extends AbstractVectorGraphicsIO impl
         // Our PS Header has internal page orientation mode, all sizes given in
         // portrait
         Dimension pageSize = getPageSize();
-        Insets margins = getPropertyInsets(PAGE_MARGINS);
+        Insets margins = isProperty(ALLOW_RESIZING_AND_MARGINS) ? getPropertyInsets(PAGE_MARGINS) : new Insets(0, 0, 0, 0);
 
         // Compute origin translation. FreeHEP uses upper left corner as origin, but
         // PostScript expects lower left as origin. Translate graphics "up" by their
@@ -451,6 +467,15 @@ public abstract class AbstractPSGraphics2D extends AbstractVectorGraphicsIO impl
         xform.concatenate(imageTransform);
 
         writeTransform(xform);
+
+        if (isProperty(PDFMARK_TRANSPARENCY)) {
+            float alpha = 1.0f;
+            if (getComposite() instanceof AlphaComposite)
+              alpha = ((AlphaComposite)getComposite()).getAlpha();
+            
+            writeAlphaPDFMark(alpha);
+        }
+
         os.println("<<");
         os.println("/ImageType 1");
         os.println("/Width " + imageWidth + "  /Height " + imageHeight);
@@ -722,37 +747,46 @@ public abstract class AbstractPSGraphics2D extends AbstractVectorGraphicsIO impl
      * @param font font to use
      * @param str string to draw
      */
-    public void showString(Font font, String str) {
+    public void showString(Font font, String str, boolean customCharTable) {
         StringBuffer result = new StringBuffer();
-        Map /*<TextAttribute,?>*/<Attribute, Object> attributes = FontUtilities.getAttributes(font);
-        PSFontTable.normalize(attributes);
+        fontTable.useCodes(font, customCharTable,
+            isProperty(EMBED_FONTS), !isProperty(EMBED_SKIP_STANDARD_FONTS),
+            getProperty(EMBED_FONTS_AS), str);
+        
         // write font name
         String fontName = fontTable.fontReference(
-            font,
-            isProperty(EMBED_FONTS),
+            font, customCharTable,
+            isProperty(EMBED_FONTS), !isProperty(EMBED_SKIP_STANDARD_FONTS),
             getProperty(EMBED_FONTS_AS));
         result.append("/");
         result.append(fontName);
         result.append(" findfont ");
-        result.append(font.getSize());
+        result.append(font.getSize2D());
         result.append(" scalefont setfont");
 
         // use embeded fonts or draw string directly
-        if (isProperty(EMBED_FONTS)) {
-            // write string directly
-            result.append("\n");
+        // write string directly
+        result.append("\n");
+        double tracking = ((Number)getTextAttribute(TextAttribute.TRACKING)).doubleValue();
+        if (tracking != 0) {
+            result.append(fixedPrecision(tracking * font.getSize2D()));
+            result.append(" 0");
+            result.append(PSStringStyler.getEscaped(str));
+            result.append(" ashow");
+        }
+        else {
             result.append(PSStringStyler.getEscaped(str));
             result.append(" show");
-        } else {
-            // write string as styled unicode char sequence
-            result.append(" ");
-            result.append(PSStringStyler.getStyledString(attributes, str));
-            result.append(" recshow");
         }
 
         // write the result
         os.println(result.toString());
     }
+
+    public CharTable getCustomCharTableFor(Font font) {
+        return fontTable.getCustomCharTableFor(font, !isProperty(EMBED_SKIP_STANDARD_FONTS), getProperty(EMBED_FONTS_AS));
+    }
+        
 
     /**
      * Draws <code>str</code> to the stream. Uses the font transformation and depending on
@@ -782,24 +816,20 @@ public abstract class AbstractPSGraphics2D extends AbstractVectorGraphicsIO impl
         writeTransform(at);
         // move to drawing position, nedded to open a drawing path
         os.println(fixedPrecision(0) + " " + fixedPrecision(0) + " moveto");
-        // embed font or draw string directly
-        if (isProperty(EMBED_FONTS)) {
-            // use embedded font encodings for unicode to PS
-            FontUtilities.showString(
-                getFont(),
-                str,
-                fontTable.getEncodingTable(),
-                this);
-        } else {
-            // use PS header for unicode to composite font encoding
-            showString(getFont(), str);
-        }
+
+        FontUtilities.showString(getFont(), str, fontTable.getEncodingTable(),
+              this, isProperty(EMBED_FONTS));
 
         // reset the current graphics state from the one on the top
         // of the graphics state stack and pop the graphics state stack
         writeGraphicsRestore();
     }
 
+    private void writeAlphaPDFMark(float alpha) {
+          String alphaStr = fixedPrecision(alpha);
+          os.println("[ /CA " + alphaStr + " /ca " + alphaStr + " /BM /Normal /SetTransparency pdfmark");
+    }
+    
     /**
      * A utility function which actually sets the color in the PS. We use the
      * stroke color as the PS current color and a special saved variable for the
@@ -810,6 +840,9 @@ public abstract class AbstractPSGraphics2D extends AbstractVectorGraphicsIO impl
      */
     private void setPSColor(Color c, boolean fillColor) {
         if (c != null) {
+            if (isProperty(PDFMARK_TRANSPARENCY))
+                writeAlphaPDFMark((float)(c.getAlpha() / 255.0));
+            
             if (c instanceof MappedColor) {
                 MappedColor mc = (MappedColor) c;
                 if (!fillColor) {
@@ -834,7 +867,7 @@ public abstract class AbstractPSGraphics2D extends AbstractVectorGraphicsIO impl
                 double blue = ((double) pc.getBlue()) / 255.;
                 os.print(fixedPrecision(red) + " " + fixedPrecision(green)
                         + " " + fixedPrecision(blue) + " ");
-                os.println(((fillColor) ? "rg" : "RG"));
+                os.println((fillColor ? "rg" : "RG"));
             }
         }
     }

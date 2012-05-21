@@ -24,6 +24,7 @@ import java.awt.TexturePaint;
 import java.awt.Toolkit;
 import java.awt.font.FontRenderContext;
 import java.awt.font.GlyphVector;
+import java.awt.font.TextAttribute;
 import java.awt.font.TextLayout;
 import java.awt.geom.AffineTransform;
 import java.awt.geom.Area;
@@ -46,6 +47,7 @@ import java.util.Arrays;
 import java.util.Map;
 
 import org.freehep.graphics2d.font.FontEncoder;
+import org.freehep.graphics2d.font.FontMap;
 import org.freehep.graphics2d.font.FontUtilities;
 import org.freehep.util.images.ImageUtilities;
 
@@ -57,10 +59,11 @@ import org.freehep.util.images.ImageUtilities;
  * @author Mark Donszelmann
  * @author Steffen Greiffenberg
  * @author Peter Webb (for The MathWorks)
+ * @author Alexander Levantovsky, MagicPlot
  */
 public abstract class AbstractVectorGraphicsIO extends VectorGraphicsIO {
 
-    private static final String rootKey = AbstractVectorGraphicsIO.class
+    public static final String rootKey = AbstractVectorGraphicsIO.class
             .getName();
 
     public static final String EMIT_WARNINGS = rootKey + ".EMIT_WARNINGS";
@@ -69,7 +72,13 @@ public abstract class AbstractVectorGraphicsIO extends VectorGraphicsIO {
 
     public static final String EMIT_ERRORS = rootKey + ".EMIT_ERRORS";
 
-    public static final String CLIP = rootKey+".CLIP";
+    public static final String CLIP = rootKey + ".CLIP";
+
+    public static final String ALLOW_RESIZING_AND_MARGINS = rootKey + ".ALLOW_RESIZING_AND_MARGINS";
+
+    public static final String ALLOW_BACKGROUND = rootKey + ".ALLOW_BACKGROUND";
+    
+    public static final String ALLOW_PREVIEW_INCLUDING = rootKey + ".ALLOW_PREVIEW_INCLUDING";
 
     /*
      * ================================================================================
@@ -133,6 +142,7 @@ public abstract class AbstractVectorGraphicsIO extends VectorGraphicsIO {
     protected AbstractVectorGraphicsIO(Dimension size,
             boolean doRestoreOnDispose) {
         super();
+        initDefaultProperties();
 
         this.size = size;
         this.component = null;
@@ -176,6 +186,7 @@ public abstract class AbstractVectorGraphicsIO extends VectorGraphicsIO {
     protected AbstractVectorGraphicsIO(Component component,
             boolean doRestoreOnDispose) {
         super();
+        initDefaultProperties();
 
         this.size = component.getSize();
         this.component = component;
@@ -222,7 +233,14 @@ public abstract class AbstractVectorGraphicsIO extends VectorGraphicsIO {
         currentStroke = graphics.currentStroke;
         hints = graphics.hints;
     }
-
+    
+    private void initDefaultProperties()
+    {
+      getProperties().setProperty(ALLOW_RESIZING_AND_MARGINS, "true");
+      getProperties().setProperty(ALLOW_BACKGROUND, "true");
+      getProperties().setProperty(ALLOW_PREVIEW_INCLUDING, "true");
+    }
+    
     /*
      * ================================================================================ |
      * 2. Document Settings
@@ -281,7 +299,7 @@ public abstract class AbstractVectorGraphicsIO extends VectorGraphicsIO {
 
 //		writeStroke(getStroke());
 		
-        setClip(getClip());
+                setClip(getClip());
          
         
 		// Silly assignment, Font is written when String is drawed and "extra" writeFont does not exist
@@ -619,6 +637,7 @@ public abstract class AbstractVectorGraphicsIO extends VectorGraphicsIO {
         } else {
             // reset to that font at the end
             Font font = getFont();
+            Paint paint = getPaint();
 
             // initial attributes, we us TextAttribute.equals() rather
             // than Font.equals() because using Font.equals() we do
@@ -637,12 +656,14 @@ public abstract class AbstractVectorGraphicsIO extends VectorGraphicsIO {
                 // append c if font is not changed
                 if (attributes.equals(iterator.getAttributes())) {
                     sb.append(c);
-
                 } else {
                     // TextLayout does not like 0 length strings
                     if (sb.length() > 0) {
                         // draw sb if font is changed
                         drawString(sb.toString(), x, y);
+                        
+//                        System.out.println(getFont().getPSName() + ": '" + sb.toString() + "'");
+                        
     
                         // change the x offset for the next drawing
                         // FIXME: change y offset for vertical text
@@ -650,11 +671,13 @@ public abstract class AbstractVectorGraphicsIO extends VectorGraphicsIO {
                             sb.toString(),
                             attributes,
                             getFontRenderContext());
-    
+
                         // calculate real width
-                        x = x + Math.max(
-                            tl.getAdvance(),
-                            (float)tl.getBounds().getWidth());
+                        x += tl.getAdvance();
+                        
+//                        x = x + Math.max(
+//                            tl.getAdvance(),
+//                            (float)tl.getBounds().getWidth());
                     }
                     
                     // empty sb
@@ -663,7 +686,13 @@ public abstract class AbstractVectorGraphicsIO extends VectorGraphicsIO {
 
                     // change the font
                     attributes = iterator.getAttributes();
-                    setFont(new Font(attributes));
+                    setFont(FontMap.getFont(attributes));
+                    // Added changing color and trachink support - Levantovsky, MagicPlot
+                    if (attributes.get(TextAttribute.FOREGROUND) != null)
+                      setPaint((Paint)attributes.get(TextAttribute.FOREGROUND));
+                    
+                    setTextAttribute(TextAttribute.TRACKING, attributes.get(TextAttribute.TRACKING));
+                    setTextAttribute(TextAttribute.UNDERLINE, attributes.get(TextAttribute.UNDERLINE));
                 }
             }
 
@@ -674,6 +703,10 @@ public abstract class AbstractVectorGraphicsIO extends VectorGraphicsIO {
 
             // use the old font for the next string drawing
             setFont(font);
+            setPaint(paint);
+            
+            setTextAttribute(TextAttribute.TRACKING, 0);
+            setTextAttribute(TextAttribute.UNDERLINE, -1);
         }
     }
 

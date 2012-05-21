@@ -16,6 +16,7 @@ import org.freehep.graphicsio.font.FontEmbedder;
  * Type 3 Font Embedder class for Postscript.
  * 
  * @author Sami Kama
+ * @author Alexander Levantovsky, MagicPlot
  * @version $Id: freehep-graphicsio-ps/src/main/java/org/freehep/graphicsio/ps/PSFontEmbedder.java f24bd43ca24b 2005/12/02 00:39:35 duns $
  */
 public class PSFontEmbedder extends FontEmbedder {
@@ -47,16 +48,17 @@ public class PSFontEmbedder extends FontEmbedder {
         os.println("\t/" + unicodeName);
         os.println("\t\t{");
 
+        // Added '-' for all y-coordinates - Levantovsky, MagicPlot
         while (!pIter.isDone()) {
             switch (pIter.currentSegment(points)) {
             case PathIterator.SEG_MOVETO:
-                pc.move(points[0], points[1]);
+                pc.move(points[0], -points[1]);
                 lastMove[0] = lastPoint[0] = points[0];
                 lastMove[1] = lastPoint[1] = points[1];
                 break;
 
             case PathIterator.SEG_LINETO:
-                pc.line(points[0], points[1]);
+                pc.line(points[0], -points[1]);
                 lastPoint[0] = points[0];
                 lastPoint[1] = points[1];
                 break;
@@ -66,21 +68,21 @@ public class PSFontEmbedder extends FontEmbedder {
                 controlPoint[1] = points[1] + (lastPoint[1] - points[1]) / 3.;
                 controlPoint[2] = points[0] + (points[2] - points[0]) / 3.;
                 controlPoint[3] = points[1] + (points[3] - points[1]) / 3.;
-                pc.cubic(controlPoint[0], controlPoint[1], controlPoint[2],
-                        controlPoint[3], points[2], points[3]);
+                pc.cubic(controlPoint[0], -controlPoint[1], controlPoint[2],
+                        -controlPoint[3], points[2], -points[3]);
                 lastPoint[0] = points[2];
                 lastPoint[1] = points[3];
                 break;
 
             case PathIterator.SEG_CUBICTO:
-                pc.cubic(points[0], points[1], points[2], points[3], points[4],
-                        points[5]);
+                pc.cubic(points[0], -points[1], points[2], -points[3], points[4],
+                        -points[5]);
                 lastPoint[0] = points[4];
                 lastPoint[1] = points[5];
                 break;
 
             case PathIterator.SEG_CLOSE:
-                pc.closePath(lastMove[0], lastMove[1]);
+                pc.closePath(lastMove[0], -lastMove[1]);
                 lastPoint[0] = 0.;
                 lastPoint[1] = 0.;
                 break;
@@ -115,7 +117,7 @@ public class PSFontEmbedder extends FontEmbedder {
         os.println("\t\t\t0 1 255 {Encoding exch /.notdef put}for");
         for (int i = 1; i < 256; i++) {
             String name = charTable.toName(i);
-            if (name != null) {
+            if (isCodeUsed(i) && name != null) {
                 os.println("\t\tEncoding " + i + " /" + name + " put");
             }
         }
@@ -134,9 +136,7 @@ public class PSFontEmbedder extends FontEmbedder {
                 + (1 / FONT_SIZE) + " 0 0]def");
         os.println("/FontBBox [" + (int) llx + " " + (int) lly + " "
                 + (int) urx + " " + (int) ury + " ] def");
-        // os.println("\t /"+getFontName()+" "+(getNODefinedChars()+1)+" dict
-        // def");
-
+        os.println("/FontName /" + getFontPSName() + " def");
     }
 
     /** Closes font dictionary. */

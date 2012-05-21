@@ -1,0 +1,42 @@
+This file contains the list of changes whih were made in FreeHEP VectorGraphics 
+in May 2012 by Alexander Levantovsky for MagicPlot scientific plotting application.
+Magicplot Systems, LLC, Saint Petersburg, Russia, http://magicplot.com
+Special thanks to Mikhail Petrov (SPbSU) for testing EPS and PDF syntax.
+
+NOTE: I have fixed bugs which are the most important for using in MagicPlot.
+MagicPlot uses only some methods of java.awt.Graphics2D and 
+only these methods were tested carefully. But I suppose this fixes may be usefull for someone.
+
+FreeHEP VectorGraphics bug tracker seems to be dead by now (May 2012)...
+
+=== Fixed: ===
+- PDF, EPS: Font ebmedding: glyphs appeared mirrowed in documents. 
+    Reason: incorrect y-coordinate.
+- PDF, EPS: Font Embedding: Symbols out of standard encoding ignored
+- PDF, EPS: Symbols out of standard encoding were drawn with standard 
+    Symbol font instead of selected font. 
+- PDF: Font embedding: only first font was embedded because of mistaken boolean flag usage.
+- PDF: Raster images: AlphaComposite was ignored - no transluency
+- PDF: Transparency was rendered in CMYK or RGB in different viewers: 
+    Transparency group with color space was not set
+- PDF: Page size must exactly correspond image size. New preferences keys added:
+    in AbstractVectorGraphicsIO: ALLOW_RESIZING_AND_MARGINS, 
+    ALLOW_BACKGROUND, ALLOW_PREVIEW_INCLUDING.
+- EPS: Transparency with pdfmark SetTransparency feature
+- EPS: Fonts writing is delayed: we need first to know what glyphs to embed
+
+- SVG: Crop was not working
+- SVG: Text tracking was not working.
+- SVG: Font embedding checkbox was not present in options dialog.
+- SVG: Image transparency (current AlphaComposite) was ignored
+- SVG: Text underline
+
+- Options dialog: Changed border design (simple TitledBorder).
+
+
+=== Known issues and not realised yet: ===
+- PDF: Type 1 fonts not open in STDU Viewer, in Mac Preview but works in Acrobat
+- PDF, EPS: Text underline is not implemented
+- PDF: TrueType fonts embedding is not implemented but some code exists in GraphicsIO package
+
+

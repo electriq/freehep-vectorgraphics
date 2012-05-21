@@ -4,6 +4,7 @@ package org.freehep.graphicsio;
 /**
  * 
  * @author Mark Donszelmann
+ * @author Alexander Levantovsky, MagicPlot
  * @version $Id: freehep-graphicsio/src/main/java/org/freehep/graphicsio/FontConstants.java 9d9f8caaff82 2007/01/09 18:20:50 duns $
  */
 public class FontConstants {
@@ -15,6 +16,8 @@ public class FontConstants {
     public static final String EMBED_FONTS = "EmbedFonts";
 
     public static final String EMBED_FONTS_AS = "EmbedFontsAs";
+    
+    public static final String EMBED_SKIP_STANDARD_FONTS = "EmbedSkipStandardFonts";
 
     public static final String EMBED_FONTS_TYPE1 = "Type1";
 

@@ -9,6 +9,7 @@ import java.util.Calendar;
  * <p>
  * 
  * @author Mark Donszelmann
+ * @author Alexander Levantovsky, MagicPlot
  * @version $Id: freehep-graphicsio-pdf/src/main/java/org/freehep/graphicsio/pdf/PDFPage.java f493ff6e61b2 2005/12/01 18:46:43 duns $
  */
 public class PDFPage extends PDFPageBase {
@@ -39,6 +40,10 @@ public class PDFPage extends PDFPageBase {
 
     public void setContents(String content) throws IOException {
         entry("Contents", pdf.ref(content));
+    }
+
+    public void setGroup(String group) throws IOException {
+        entry("Group", pdf.ref(group));
     }
 
     public void setThumb(String thumb) throws IOException {

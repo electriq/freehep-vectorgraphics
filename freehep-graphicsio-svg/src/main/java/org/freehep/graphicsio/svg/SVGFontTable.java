@@ -13,8 +13,10 @@ import java.util.Hashtable;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Properties;
+import org.freehep.graphics2d.font.FontMap;
 
 import org.freehep.graphics2d.font.FontUtilities;
+import org.freehep.graphicsio.font.FontIncluder;
 import org.freehep.graphicsio.font.FontTable;
 
 /**
@@ -25,6 +27,7 @@ import org.freehep.graphicsio.font.FontTable;
  * in <text> tags.
  *
  * @author Steffen Greiffenberg
+ * @author Alexander Levantovsky, MagicPlot
  * @version $Id: freehep-graphicsio-svg/src/main/java/org/freehep/graphicsio/svg/SVGFontTable.java 4c4708a97391 2007/06/12 22:32:31 duns $
  */
 public class SVGFontTable {
@@ -33,8 +36,8 @@ public class SVGFontTable {
      * Stores fonts and a glyph-hashtable. The font key ist normalized using
      * {@link #untransform(java.awt.Font)}
      */
-    private Hashtable/*<Font, Hashtable<String, SVGGlyph>*/<Font, Hashtable<String, SVGGlyph>> glyphs =
-        new Hashtable/*<Font, Hashtable<String SVGGlyph>>*/<Font, Hashtable<String, SVGGlyph>>();
+    private Hashtable<Font, Hashtable<String, SVGGlyph>> glyphs =
+        new Hashtable<Font, Hashtable<String, SVGGlyph>>();
 
     /**
      * creates a glyph for the string character
@@ -45,7 +48,7 @@ public class SVGFontTable {
      */
     private SVGGlyph addGlyph(int c, Font font) {
         // is the font stored?
-        Hashtable/*<String, SVGGlyph>*/<String, SVGGlyph> glyphs = getGlyphs(font);
+        Hashtable<String, SVGGlyph> glyphs = getGlyphs(font);
 
         // does a glyph allready exist?
         SVGGlyph result = glyphs.get(String.valueOf(c));
@@ -98,14 +101,14 @@ public class SVGFontTable {
      * @param font
      * @return glyph vectors for font
      */
-    private Hashtable/*<String SVGGlyph>*/<String, SVGGlyph> getGlyphs(Font font) {
+    private Hashtable<String, SVGGlyph> getGlyphs(Font font) {
         // derive a default font for the font table
         font = untransform(font);
 
-        Hashtable/*<String SVGGlyph>*/<String, SVGGlyph> result =
+        Hashtable<String, SVGGlyph> result =
             glyphs.get(font);
         if (result == null) {
-            result = new Hashtable/*<String SVGGlyph>*/<String, SVGGlyph>();
+            result = new Hashtable<String, SVGGlyph>();
             glyphs.put(font, result);
         }
         return result;
@@ -122,27 +125,25 @@ public class SVGFontTable {
      *
      * @return string representing the entry
      */
+    @Override
     public String toString() {
         StringBuffer result = new StringBuffer();
 
-        Enumeration/*<Font>*/<Font> fonts = this.glyphs.keys();
+        Enumeration<Font> fonts = this.glyphs.keys();
         while (fonts.hasMoreElements()) {
             Font font = fonts.nextElement();
-
+            
             // replace font family for svg
-            Map /*<TextAttribute, ?>*/<Attribute, Object> attributes = FontUtilities.getAttributes(font);
-
-            // Dialog -> Helvetica
-            normalize(attributes);
+            Map <Attribute, Object> attributes = FontUtilities.getAttributes(font);
 
             // familiy
             result.append("<font id=\"");
-            result.append(attributes.get(TextAttribute.FAMILY));
+            result.append(FontIncluder.getFontPSName(font));
             result.append("\">\n");
 
             // font-face
             result.append("<font-face font-family=\"");
-            result.append(attributes.get(TextAttribute.FAMILY));
+            result.append(FontUtilities.getWindowsFontFamily((String)attributes.get(TextAttribute.FAMILY)));
             result.append("\" ");
 
             // bold
@@ -240,7 +241,7 @@ public class SVGFontTable {
         attributes.remove(TextAttribute.TRANSFORM);
         attributes.remove(TextAttribute.SUPERSCRIPT);
 
-        return new Font(attributes);
+        return FontMap.getFont(attributes);
     }
 
     /**
@@ -261,32 +262,5 @@ public class SVGFontTable {
         replaceFonts.setProperty("monospaced", "Courier New");
         // FIXME: replacement for zapfdingbats?
         replaceFonts.setProperty("zapfdingbats", "Wingdings");
-    }
-
-    /**
-     * Replaces TextAttribute.FAMILY by values of replaceFonts. When a
-     * font created using the result of this method the transformation would be:
-     *
-     * <code>java.awt.Font[family=SansSerif,name=SansSerif,style=plain,size=30]</code><BR>
-     * will result to:<BR>
-     * <code>java.awt.Font[family=SansSerif,name=Helvetica,style=plain,size=30]</code><BR><BR>
-     *
-     * Uses {@link FontTable#normalize(java.util.Map)} first.
-     *
-     * @param attributes with font name to change
-     */
-    public static void normalize(Map /*<TextAttribute, ?>*/<Attribute, Object> attributes) {
-        // dialog.bold -> Dialog with TextAttribute.WEIGHT_BOLD
-        FontTable.normalize(attributes);
-
-        // get replaced font family name (Yes it's right, not the name!)
-        String family = replaceFonts.getProperty(
-            ((String) attributes.get(TextAttribute.FAMILY)).toLowerCase());
-        if (family == null) {
-            family = (String) attributes.get(TextAttribute.FAMILY);
-        }
-        
-        // replace the family (Yes it's right, not the name!) in the attributes
-        attributes.put(TextAttribute.FAMILY, family);
     }
 }

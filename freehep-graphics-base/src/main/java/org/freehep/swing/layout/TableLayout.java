@@ -50,6 +50,7 @@ import java.util.regex.Pattern;
  * You may construct a TableLayout with some default name string.
  *
  * @author Mark Donszelmann
+ * @author Alexander Levantovsky, MagicPlot
  * @version $Id: TableLayout.java 8584 2006-08-10 23:06:37Z duns $
  */
 public class TableLayout extends GridBagLayout {
@@ -61,11 +62,11 @@ public class TableLayout extends GridBagLayout {
     public static final String RESIZE_HEIGHT    = "* * 1 1 (0, 0) [0, 0, 0, 0] {0.0, 1.0} h";
     public static final String RESIZE_BOTH      = "* * 1 1 (0, 0) [0, 0, 0, 0] {1.0, 1.0} wh";
 
-    public static final String LEFT             = "0 * [5 15 5 15] r";
-    public static final String RIGHT            = "1 * [5 15 5 15] lw";
-    public static final String VERY_LEFT        = "0 * [5 0 5 15] r";
-    public static final String VERY_RIGHT       = "1 * [5 15 5 0] lw";
-    public static final String FULL             = "0 * * 1 [5 15 5 15] w";
+    public static final String LEFT             = "0 * [5 5 5 5] r";
+    public static final String RIGHT            = "1 * [5 5 5 5] lw";
+    public static final String VERY_LEFT        = "0 * [5 0 5 5] r";
+    public static final String VERY_RIGHT       = "1 * [5 5 5 0] lw";
+    public static final String FULL             = "0 * * 1 [5 5 5 5] w";
     public static final String COLUMN           = "0 * wt";
     public static final String COLUMN_FILL      = "0 * wh";
 

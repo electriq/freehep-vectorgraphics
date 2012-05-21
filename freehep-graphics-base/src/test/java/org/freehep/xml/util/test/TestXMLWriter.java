@@ -7,7 +7,7 @@ import java.io.IOException;
 
 import junit.framework.TestCase;
 
-import org.freehep.util.Assert;
+import org.freehep.util.export.test.Assert;
 import org.freehep.xml.util.XMLWriter;
 
 /**

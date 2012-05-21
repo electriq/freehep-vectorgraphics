@@ -31,6 +31,7 @@ import org.freehep.util.UserProperties;
 /**
  * 
  * @author Mark Donszelmann
+ * @author Alexander Levantovsky, MagicPlot
  * @version $Id: freehep-graphicsio-svg/src/main/java/org/freehep/graphicsio/svg/SVGExportFileType.java 4c4708a97391 2007/06/12 22:32:31 duns $
  */
 public class SVGExportFileType extends AbstractExportFileType {
@@ -65,33 +66,38 @@ public class SVGExportFileType extends AbstractExportFileType {
 				.getDefaultProperties());
 
 		String rootKey = SVGGraphics2D.class.getName();
-		String abstractRootKey = AbstractVectorGraphicsIO.class.getName();
+		String abstractRootKey = AbstractVectorGraphicsIO.rootKey;
 
 		OptionPanel imageSize = new ImageSizePanel(options, rootKey);
 
 		OptionPanel format = new OptionPanel("Format");
-		format.add(TableLayout.LEFT, new JLabel("SVG Version"));
-		format.add(TableLayout.RIGHT, new OptionComboBox(options,
+                if (versionList.length > 1) {
+        	    format.add(TableLayout.LEFT, new JLabel("SVG Version:"));
+                    format.add(TableLayout.RIGHT, new OptionComboBox(options,
 				SVGGraphics2D.VERSION, versionList));
+                }
 
 		compress = new OptionCheckBox(options, SVGGraphics2D.COMPRESS,
 				"Compress");
 		format.add(TableLayout.FULL, compress);
 
-		format.add(TableLayout.FULL, new OptionCheckBox(options,
-				SVGGraphics2D.STYLABLE, "Stylable"));
+                // Stylable disabled - Levantovsky, MagicPlot
+                // 'STYLABLE' property must be 'false' because font size is allways
+                // in pt in Firefox and some others if setted thouht CSS-like 'style' tag.
+//		format.add(TableLayout.FULL, new OptionCheckBox(options,
+//				SVGGraphics2D.STYLABLE, "Stylable"));
 
-		OptionPanel imageExport = new OptionPanel("Embed / Export Images");
+		OptionPanel imageExport = new OptionPanel("Raster Images");
 		OptionCheckBox exportImages = new OptionCheckBox(options,
-				SVGGraphics2D.EXPORT_IMAGES, "Export");
+				SVGGraphics2D.EXPORT_IMAGES, "Save Images in Separate Files");
 		imageExport.add(TableLayout.FULL, exportImages);
 
-		JLabel exportSuffixLabel = new JLabel("Image Suffix");
+		JLabel exportSuffixLabel = new JLabel("Image File Suffix:");
 		imageExport.add(TableLayout.LEFT, exportSuffixLabel);
 		exportImages.enables(exportSuffixLabel);
 
 		final OptionTextField exportSuffix = new OptionTextField(options,
-				SVGGraphics2D.EXPORT_SUFFIX, 20);
+				SVGGraphics2D.EXPORT_SUFFIX, 10);
 		imageExport.add(TableLayout.RIGHT, exportSuffix);
 		exportImages.enables(exportSuffix);
 
@@ -100,27 +106,29 @@ public class SVGExportFileType extends AbstractExportFileType {
 
 		// TableLayout.LEFT Panel
 		JPanel leftPanel = new OptionPanel();
-		leftPanel.add(TableLayout.COLUMN, imageSize);
+                if (Boolean.valueOf(user.getProperty(AbstractVectorGraphicsIO.ALLOW_RESIZING_AND_MARGINS, "true"))) {
+                    leftPanel.add(TableLayout.COLUMN, imageSize);
+                }
 		leftPanel.add(TableLayout.COLUMN, format);
-		leftPanel.add(TableLayout.COLUMN_FILL, new JLabel());
-
+                leftPanel.add(TableLayout.COLUMN, imageExport);
+                
 		// TableLayout.RIGHT Panel
 		JPanel rightPanel = new OptionPanel();
-		rightPanel.add(TableLayout.COLUMN, new BackgroundPanel(options,
-				rootKey, true));
-		rightPanel.add(TableLayout.COLUMN, imageExport);
+                if (Boolean.valueOf(user.getProperty(AbstractVectorGraphicsIO.ALLOW_BACKGROUND, "true"))) {
+                     rightPanel.add(TableLayout.COLUMN, new BackgroundPanel(options, rootKey, true));
+                }
+                
 		rightPanel.add(TableLayout.COLUMN, new ImageTypePanel(options, rootKey,
 				new String[] { ImageConstants.SMALLEST, ImageConstants.PNG,
 						ImageConstants.JPG }));
-		rightPanel.add(TableLayout.COLUMN, new FontPanel(options, null,
-				abstractRootKey));
-		rightPanel.add(TableLayout.COLUMN_FILL, new JLabel());
+		rightPanel.add(TableLayout.COLUMN, new FontPanel(options, rootKey,
+				abstractRootKey, false));
 
 		// Make the full panel.
 		OptionPanel panel = new OptionPanel();
-		panel.add("0 0 [5 5 5 5] wt", leftPanel);
-		panel.add("1 0 [5 5 5 5] wt", rightPanel);
-		panel.add("0 1 2 1 [5 5 5 5] wt", infoPanel);
+		panel.add("0 0 [0 0 0 0] wt", leftPanel);
+		panel.add("1 0 [0 0 0 0] wt", rightPanel);
+		panel.add("0 1 2 1 [0 0 0 0] wt", infoPanel);
 		panel.add(TableLayout.COLUMN_FILL, new JLabel());
 
 		return panel;

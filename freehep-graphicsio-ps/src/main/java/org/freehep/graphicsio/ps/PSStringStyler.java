@@ -190,13 +190,25 @@ public class PSStringStyler {
             } else if (c == 0) {
                 result.append('?');
             } else {
-                result.append(c);
+              if (c <= 127)
+                  result.append(c);
+              else {
+                  result.append('\\');
+                  result.append(octalString(c, 3));
+              }
             }
         }
 
         result.append(")");
 
         return result.toString();
+    }
+    
+    private static String octalString(int val, int digits) {
+        StringBuilder sb = new StringBuilder(Integer.toOctalString(val));
+        while (sb.length() < digits)
+          sb.insert(0, '0');
+        return sb.toString();
     }
 
     /**

@@ -21,6 +21,7 @@ import org.freehep.util.UserProperties;
 /**
  * 
  * @author Charles Loomis
+ * @author Alexander Levantovsky, MagicPlot
  * @version $Id: freehep-graphicsio/src/main/java/org/freehep/graphicsio/gif/GIFExportFileType.java 59372df5e0d9 2007/02/06 21:11:19 duns $
  */
 public class GIFExportFileType extends ImageExportFileType {
@@ -51,23 +52,23 @@ public class GIFExportFileType extends ImageExportFileType {
                 .getDefaultProperties());
         JPanel panel = super.createOptionPanel(options);
 
-        OptionCheckBox quantize = new OptionCheckBox(options,
-                GIFGraphics2D.QUANTIZE_COLORS, "Quantize Colors");
-        panel.add(TableLayout.FULL, quantize);
+//        OptionCheckBox quantize = new OptionCheckBox(options,
+//                GIFGraphics2D.QUANTIZE_COLORS, "Quantize Colors");
+//        panel.add(TableLayout.FULL, quantize);
 
-        JLabel quantizeModeLabel = new JLabel("Quantize using ");
-        panel.add(TableLayout.LEFT, quantizeModeLabel);
-        quantize.enables(quantizeModeLabel);
+//        JLabel quantizeModeLabel = new JLabel("Quantize using: ");
+//        panel.add(TableLayout.LEFT, quantizeModeLabel);
+//        quantize.enables(quantizeModeLabel);
 
-        OptionComboBox quantizeMode = new OptionComboBox(options,
-                GIFGraphics2D.QUANTIZE_MODE, quantizeModes);
-        panel.add(TableLayout.RIGHT, quantizeMode);
-        quantize.enables(quantizeMode);
+//        OptionComboBox quantizeMode = new OptionComboBox(options,
+//                GIFGraphics2D.QUANTIZE_MODE, quantizeModes);
+//        panel.add(TableLayout.RIGHT, quantizeMode);
+//        quantize.enables(quantizeMode);
 
         // disable for now
-        quantize.setEnabled(false);
-        quantizeModeLabel.setEnabled(false);
-        quantizeMode.setEnabled(false);
+//        quantize.setEnabled(false);
+//        quantizeModeLabel.setEnabled(false);
+//        quantizeMode.setEnabled(false);
 
         return panel;
     }

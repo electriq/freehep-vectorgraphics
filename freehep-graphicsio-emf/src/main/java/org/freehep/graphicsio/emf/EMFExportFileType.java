@@ -23,6 +23,7 @@ import org.freehep.util.UserProperties;
  * // FIXME, check all options
  * 
  * @author Mark Donszelmann
+ * @author Alexander Levantovsky, MagicPlot
  * @version $Id: freehep-graphicsio-emf/src/main/java/org/freehep/graphicsio/emf/EMFExportFileType.java 4c4708a97391 2007/06/12 22:32:31 duns $
  */
 public class EMFExportFileType extends AbstractExportFileType {
@@ -50,14 +51,16 @@ public class EMFExportFileType extends AbstractExportFileType {
 				.getDefaultProperties());
 
 		String rootKey = EMFGraphics2D.class.getName();
-		String abstractRootKey = AbstractVectorGraphicsIO.class.getName();
+		String abstractRootKey = AbstractVectorGraphicsIO.rootKey;
 
 		// Make the full panel.
 		OptionPanel optionsPanel = new OptionPanel();
-		optionsPanel.add("0 0 [5 5 5 5] wt", new BackgroundPanel(options,
-				rootKey, true));
+                if (Boolean.valueOf(user.getProperty(AbstractVectorGraphicsIO.ALLOW_BACKGROUND, "true"))) {
+		  optionsPanel.add("0 0 [0 0 0 0] wt", new BackgroundPanel(options,
+  				rootKey, true));
+                }
 
-		optionsPanel.add("0 1 [5 5 5 5] wt", new FontPanel(options, null,
+		optionsPanel.add("0 1 [0 0 0 0] wt", new FontPanel(options, null,
 				abstractRootKey));
 
 		optionsPanel.add(TableLayout.COLUMN_FILL, new JLabel());

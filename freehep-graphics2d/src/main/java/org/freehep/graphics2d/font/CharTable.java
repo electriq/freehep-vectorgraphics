@@ -1,11 +1,14 @@
 //Copyright 2001-2005 FreeHep
 package org.freehep.graphics2d.font;
 
+import java.awt.Font;
+
 /**
  * Provides conversions between unicodes, names, and encodings for any
  * particular encoding.
  * 
  * @author Sami Kama
+ * @author Alexander Levantovsky, MagicPlot
  * @version $Id: freehep-graphics2d/src/main/java/org/freehep/graphics2d/font/CharTable.java 7aee336a8992 2005/11/25 23:19:05 duns $
  */
 public interface CharTable {

@@ -1,5 +1,5 @@
 // Copyright 2002-2005, FreeHEP.
-package org.freehep.util;
+package org.freehep.util.export.test;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedReader;

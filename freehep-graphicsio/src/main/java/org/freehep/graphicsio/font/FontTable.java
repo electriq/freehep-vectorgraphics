@@ -5,11 +5,14 @@ import java.awt.Font;
 import java.awt.font.TextAttribute;
 import java.io.IOException;
 import java.text.AttributedCharacterIterator.Attribute;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Hashtable;
 import java.util.Map;
 
 import org.freehep.graphics2d.font.CharTable;
+import org.freehep.graphics2d.font.CustomCharTable;
+import org.freehep.graphics2d.font.FontMap;
 import org.freehep.graphics2d.font.FontUtilities;
 import org.freehep.graphics2d.font.Lookup;
 
@@ -17,6 +20,7 @@ import org.freehep.graphics2d.font.Lookup;
  * A table to remember which fonts were used while writing a document.
  * 
  * @author Simon Fischer
+ * @author Alexander Levantovsky, MagicPlot
  */
 public abstract class FontTable {
 
@@ -28,8 +32,10 @@ public abstract class FontTable {
         private CharTable encoding;
 
         private boolean written;
+        
+        boolean[] codesUsed;
 
-        private Entry(Font f, CharTable encoding) {
+        private Entry(Font f, CharTable encoding, boolean embed, boolean embedStandard) {
             // get attributes of font for the stored default font
             Map<Attribute, Object> attributes = FontUtilities.getAttributes(f);
 
@@ -40,11 +46,13 @@ public abstract class FontTable {
             attributes.remove(TextAttribute.TRANSFORM);
             attributes.remove(TextAttribute.SUPERSCRIPT);
 
-            this.font = new Font(attributes);
+            this.font = FontMap.getFont(attributes);
 
-            this.ref = createFontReference(this.font);
+            this.ref = createFontReference(this.font, encoding instanceof CustomCharTable, embed, embedStandard);
             this.encoding = encoding;
             this.written = false;
+            this.codesUsed = new boolean[256];
+            Arrays.fill(codesUsed, false);
         }
 
         public Font getFont() {
@@ -69,6 +77,20 @@ public abstract class FontTable {
 
         public boolean isWritten() {
             return written;
+        }
+        
+        public void useCode(int code) {
+            codesUsed[code] = true;
+        }
+
+        public void useCodes(String encoded) {
+            for (int i = 0; i < encoded.length(); i++) {
+                useCode((int)encoded.charAt(i));
+            }
+        }
+        
+        public boolean[] getCodesUsed() {
+            return codesUsed;
         }
 
         public String toString() {
@@ -99,7 +121,7 @@ public abstract class FontTable {
             throws IOException;
 
     /** Creates a unique reference to address this font. */
-    protected abstract String createFontReference(Font f);
+    protected abstract String createFontReference(Font f, boolean customCharTable, boolean embed, boolean embedStandard);
 
     protected abstract Font substituteFont(Font font);
 
@@ -108,25 +130,42 @@ public abstract class FontTable {
      * is generated if the font was not used yet. For different fontsizes the
      * same name is returned.
      */
-    public String fontReference(Font font, boolean embed, String embedAs) {
+    public String fontReference(Font font, boolean customEncoding, boolean embed, boolean embedStandard, String embedAs) {
+        return fontEntry(font, customEncoding, embed, embedStandard, embedAs).getReference();
+    }
+
+    public void useCodes(Font font, boolean customEncoding, boolean embed, boolean embedStandard, String embedAs, String encoded) {
+        fontEntry(font, customEncoding, embed, embedStandard, embedAs).useCodes(encoded);
+    }
+
+    public boolean[] getCodeUsed(Font font, boolean customEncoding, boolean embed, boolean embedStandard, String embedAs) {
+        return fontEntry(font, customEncoding, embed, embedStandard, embedAs).getCodesUsed();
+    }
+
+    public Entry fontEntry(Font font, boolean customEncoding, boolean embed, boolean embedStandard, String embedAs) {
         // look for stored font
         font = substituteFont(font);
-        String key = getKey(font);
+        String key = getKey(font, customEncoding, embed, embedStandard);
         Entry e = table.get(key);
 
         // create new one
         if (e == null) {
-            e = new Entry(font, getEncodingTable(font));
-            try {
-                firstRequest(e, embed, embedAs);
-            } catch (IOException exc) {
-                exc.printStackTrace();
-            }
+            e = createFontEntry(font, customEncoding, embed, embedStandard, embedAs);
             table.put(key, e);
         }
 
-        return e.ref;
+        return e;
     }
+    
+    private Entry createFontEntry(Font font, boolean customEncoding, boolean embed, boolean embedStandard, String embedAs) {
+        Entry e = new Entry(font, customEncoding ? new CustomCharTable() : getEncodingTable(font), embed, embedStandard);
+        try {
+            firstRequest(e, embed, embedAs);
+        } catch (IOException exc) {
+            exc.printStackTrace();
+        }
+        return e;
+  }
 
     /**
      * To embed all derivations of a font too (with underline,
@@ -135,79 +174,8 @@ public abstract class FontTable {
      * @param font ist attributes are used
      * @return something like Helvetica[BOLD:1][ITALIC:0][UNDERLINE:1]
      */
-    private String getKey(Font font) {
-        Map/*<TextAttribute,?>*/<?, ?> attributes = FontUtilities.getAttributes(font);
-
-        StringBuffer result = new StringBuffer(font.getName());
-
-        // bold
-        result.append("[WEIGHT:");
-        result.append(attributes.get(TextAttribute.WEIGHT));
-        result.append("]");
-
-        // italic
-        result.append("[POSTURE:");
-        result.append(attributes.get(TextAttribute.POSTURE));
-        result.append("]");
-
-        // underline is not handled as an font property
-        // result.append("[UNDERLINE:");
-        // result.append(attributes.get(TextAttribute.UNDERLINE));
-        // result.append("]");
-
-        // strike through is not handled as an font property
-        // result.append("[STRIKETHROUGH:");
-        // result.append(attributes.get(TextAttribute.STRIKETHROUGH));
-        // result.append("]");
-
-        // SUPERSCRIPT is apllied by font.getTransformation()
-        // leave this as a reminder!
-        // result.append("[");
-        // result.append(attributes.get(TextAttribute.SUPERSCRIPT));
-        // result.append("]");
-
-        // width is not handled as an font property
-        // result.append("[WIDTH:");
-        // result.append(attributes.get(TextAttribute.WIDTH));
-        // result.append("]");
-
-        return result.toString();
-    }
-
-    /**
-     * creates a normalized attribute map, e.g.
-     * java.awt.Font[family=Dialog,name=dialog.bold,style=plain,size=20]
-     * becomes
-     * java.awt.Font[family=Dialog,name=Dialog,style=bold,size=20]
-     *
-     * @param attributes
-     */
-    public static void normalize(Map<Attribute, Object> attributes) {
-        // get name
-        String family = (String) attributes.get(TextAttribute.FAMILY);
-
-        // Java font names could end with ".plain" ".bold"
-        // and ".italic". We have to convert this to an
-        // attribute first
-        if (family.toLowerCase().endsWith(".bold")) {
-            attributes.put(TextAttribute.WEIGHT, TextAttribute.WEIGHT_BOLD);
-            // cut the ".bold"
-            int pos = family.toLowerCase().indexOf(".bold");
-            family = family.substring(0, pos);
-        } else if (family.toLowerCase().endsWith(".italic")) {
-            attributes.put(TextAttribute.POSTURE, TextAttribute.POSTURE_OBLIQUE);
-            // cut the ".italic"
-            int pos = family.toLowerCase().indexOf(".italic");
-            family = family.substring(0, pos);
-        } else if (family.toLowerCase().endsWith(".plain")) {
-            // cut the ".plain"
-            int pos = family.toLowerCase().indexOf(".plain");
-            family = family.substring(0, pos);
-        }
-
-        // first character up
-        family = family.substring(0, 1).toUpperCase() + family.substring(1, family.length());
-        attributes.put(TextAttribute.FAMILY, family);
+    private String getKey(Font font, boolean customEncoding, boolean embed, boolean embedStandard) {
+        return createFontReference(font, customEncoding, embed, embedStandard);
     }
 
     /**
@@ -218,6 +186,10 @@ public abstract class FontTable {
         return table.values();
     }
 
+    public CharTable getCustomCharTableFor(Font font, boolean embedStandard, String embedAs) {
+        return fontEntry(font, true, true, embedStandard, embedAs).getEncoding();
+    }
+    
     private CharTable getEncodingTable(Font font) {
         String fontname = font.getName().toLowerCase();
         if (fontname.indexOf("symbol") >= 0)

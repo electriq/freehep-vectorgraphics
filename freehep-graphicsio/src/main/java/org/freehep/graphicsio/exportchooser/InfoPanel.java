@@ -10,6 +10,7 @@ import org.freehep.swing.layout.TableLayout;
 /**
  * 
  * @author Mark Donszelmann
+ * @author Alexander Levantovsky, MagicPlot
  * @version $Id: freehep-graphicsio/src/main/java/org/freehep/graphicsio/exportchooser/InfoPanel.java 5641ca92a537 2005/11/26 00:15:35 duns $
  */
 public class InfoPanel extends OptionPanel {
@@ -17,9 +18,9 @@ public class InfoPanel extends OptionPanel {
         super("Info");
 
         for (int i = 0; i < keys.length; i++) {
-            add(TableLayout.LEFT, new JLabel(keys[i]));
+            add(TableLayout.LEFT, new JLabel(keys[i] + ":"));
             add(TableLayout.RIGHT, new OptionTextField(options, rootKey + "."
-                    + keys[i], 40));
+                    + keys[i], 12));
         }
     }
 }

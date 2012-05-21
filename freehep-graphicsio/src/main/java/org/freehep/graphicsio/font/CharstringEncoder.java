@@ -2,6 +2,7 @@
 package org.freehep.graphicsio.font;
 
 import java.awt.Shape;
+import java.awt.geom.AffineTransform;
 import java.io.IOException;
 import java.io.OutputStream;
 
@@ -11,6 +12,7 @@ import org.freehep.graphicsio.QuadToCubicPathConstructor;
  * Encoder to encode "CharStrings" used in PostScript and Type 1 Fonts.
  * 
  * @author Simon Fischer
+ * @author Alexander Levantovsky, MagicPlot
  * @version $Id: freehep-graphicsio/src/main/java/org/freehep/graphicsio/font/CharstringEncoder.java 5641ca92a537 2005/11/26 00:15:35 duns $
  */
 public class CharstringEncoder extends QuadToCubicPathConstructor {
@@ -73,8 +75,9 @@ public class CharstringEncoder extends QuadToCubicPathConstructor {
     // -------------------- PATH CONSTRUCTION --------------------
 
     private void writePoint(double x, double y) throws IOException {
+        // Added '-' in y-coordinates - Levantovsky, MagicPlot
         currentX += writeNumber(x - currentX);
-        currentY += writeNumber(y - currentY);
+        currentY += writeNumber(-y - currentY);
     }
 
     private void writeX(double x) throws IOException {
@@ -82,7 +85,8 @@ public class CharstringEncoder extends QuadToCubicPathConstructor {
     }
 
     private void writeY(double y) throws IOException {
-        currentY += writeNumber(y - currentY);
+        // Added '-' in y-coordinates - Levantovsky, MagicPlot
+        currentY += writeNumber(-y - currentY);
     }
 
     // -------------------- start/end --------------------

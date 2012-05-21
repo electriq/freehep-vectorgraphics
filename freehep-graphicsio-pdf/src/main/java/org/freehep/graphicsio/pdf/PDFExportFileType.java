@@ -31,6 +31,7 @@ import org.freehep.util.UserProperties;
 /**
  * 
  * @author Simon Fischer
+ * @author Alexander Levantovsky, MagicPlot
  * @version $Id: freehep-graphicsio-pdf/src/main/java/org/freehep/graphicsio/pdf/PDFExportFileType.java 4c4708a97391 2007/06/12 22:32:31 duns $
  */
 public class PDFExportFileType extends AbstractExportFileType {
@@ -65,8 +66,10 @@ public class PDFExportFileType extends AbstractExportFileType {
 
 		OptionComboBox version = new OptionComboBox(options,
 				PDFGraphics2D.VERSION, versionList);
-		format.add(TableLayout.LEFT, new JLabel("PDF Version"));
-		format.add(TableLayout.RIGHT, version);
+                if (Boolean.valueOf(user.getProperty(AbstractVectorGraphicsIO.ALLOW_PREVIEW_INCLUDING, "true"))) {
+                    format.add(TableLayout.LEFT, new JLabel("PDF Version:"));
+                    format.add(TableLayout.RIGHT, version);
+                }
 
 		format.add(TableLayout.FULL, new OptionCheckBox(options,
 				PDFGraphics2D.COMPRESS, "Compress"));
@@ -82,7 +85,7 @@ public class PDFExportFileType extends AbstractExportFileType {
 
 		// rootKeys for FontProperties
 		String rootKey = PDFGraphics2D.class.getName();
-		String abstractRootKey = AbstractVectorGraphicsIO.class.getName();
+		String abstractRootKey = AbstractVectorGraphicsIO.rootKey;
 
 		JPanel infoPanel = new InfoPanel(options, rootKey, new String[] {
 				InfoConstants.AUTHOR, InfoConstants.TITLE,
@@ -90,30 +93,42 @@ public class PDFExportFileType extends AbstractExportFileType {
 
 		// TableLayout.LEFT Panel
 		JPanel leftPanel = new OptionPanel();
-		leftPanel
-				.add(TableLayout.COLUMN, new PageLayoutPanel(options, rootKey));
-		leftPanel
-				.add(TableLayout.COLUMN, new PageMarginPanel(options, rootKey));
-		leftPanel.add(TableLayout.COLUMN_FILL, new JLabel());
+                if (Boolean.valueOf(user.getProperty(AbstractVectorGraphicsIO.ALLOW_RESIZING_AND_MARGINS, "true"))) {
+                    leftPanel.add(TableLayout.COLUMN, new PageLayoutPanel(options, rootKey));
+                    leftPanel.add(TableLayout.COLUMN, new PageMarginPanel(options, rootKey));
+                    leftPanel.add(TableLayout.COLUMN_FILL, new JLabel());
+                }
+                else {
+                    leftPanel.add(TableLayout.COLUMN, format);
+                    if (Boolean.valueOf(user.getProperty(AbstractVectorGraphicsIO.ALLOW_PREVIEW_INCLUDING, "true"))) {
+                        leftPanel.add(TableLayout.COLUMN, preview);
+                    }
+                }
+                leftPanel.add(TableLayout.COLUMN, new ImageTypePanel(options, rootKey,
+                         new String[] { ImageConstants.SMALLEST, ImageConstants.ZLIB,
+                                ImageConstants.JPG }));
+
 
 		// TableLayout.RIGHT Panel
 		JPanel rightPanel = new OptionPanel();
-		rightPanel.add(TableLayout.COLUMN, format);
-		rightPanel.add(TableLayout.COLUMN, preview);
-		rightPanel.add(TableLayout.COLUMN, new BackgroundPanel(options,
-				rootKey, true));
-		rightPanel.add(TableLayout.COLUMN, new ImageTypePanel(options, rootKey,
-				new String[] { ImageConstants.SMALLEST, ImageConstants.ZLIB,
-						ImageConstants.JPG }));
+                if (Boolean.valueOf(user.getProperty(AbstractVectorGraphicsIO.ALLOW_RESIZING_AND_MARGINS, "true"))) {
+                    rightPanel.add(TableLayout.COLUMN, format);
+                    if (Boolean.valueOf(user.getProperty(AbstractVectorGraphicsIO.ALLOW_PREVIEW_INCLUDING, "true"))) {
+                        rightPanel.add(TableLayout.COLUMN, preview);
+                    }
+                }
+                if (Boolean.valueOf(user.getProperty(AbstractVectorGraphicsIO.ALLOW_BACKGROUND, "true"))) {
+                    rightPanel.add(TableLayout.COLUMN, new BackgroundPanel(options, rootKey, true));
+                }
 		rightPanel.add(TableLayout.COLUMN, new FontPanel(options, rootKey,
 				abstractRootKey));
 		rightPanel.add(TableLayout.COLUMN_FILL, new JLabel());
 
 		// Make the full panel.
 		OptionPanel optionsPanel = new OptionPanel();
-		optionsPanel.add("0 0 [5 5 5 5] wt", leftPanel);
-		optionsPanel.add("1 0 [5 5 5 5] wt", rightPanel);
-		optionsPanel.add("0 1 2 1 [5 5 5 5] wt", infoPanel);
+                optionsPanel.add("0 0 [0 0 0 0] wt", leftPanel);
+                optionsPanel.add("1 0 [0 0 0 0] wt", rightPanel);
+		optionsPanel.add("0 1 2 1 [0 0 0 0] wt", infoPanel);
 		optionsPanel.add(TableLayout.COLUMN_FILL, new JLabel());
 
 		return optionsPanel;

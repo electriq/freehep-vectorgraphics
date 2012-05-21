@@ -39,6 +39,7 @@ import org.freehep.graphics2d.font.FontEncoder;
 /**
  * @author Charles Loomis
  * @author Mark Donszelmann
+ * @author Alexander Levantovsky, MagicPlot
  * @version $Id: freehep-graphics2d/src/main/java/org/freehep/graphics2d/PixelGraphics2D.java f827db4cd880 2006/12/04 22:27:37 duns $
  */
 public class PixelGraphics2D extends AbstractVectorGraphics {
@@ -85,35 +86,37 @@ public class PixelGraphics2D extends AbstractVectorGraphics {
     private WebColor webColor;
 
     // graphics environment stuff
-    private static boolean displayX11;
+    // This is not used in code - Levantovsky, MagicPlot
+    private static boolean displayX11 = false; 
 
-    private static boolean displayLocal;
+    private static boolean displayLocal = true;
 
     static {
         symbols = new HashMap<WebColor, Image[][][]>();
 
-        displayX11 = false;
-        displayLocal = false;
-        try {
-            Class<?> clazz = Class.forName("sun.awt.X11GraphicsEnvironment");
-            displayX11 = true;
-            Method method = clazz.getMethod("isDisplayLocal");
-            Boolean result = (Boolean) method.invoke(null);
-            displayLocal = result.booleanValue();
-        } catch (ClassNotFoundException e) {
-            // Windows case...
-            displayLocal = true;
-        } catch (IllegalAccessException e) {
-            // ignored
-        } catch (NoSuchMethodException e) {
-            // ignored
-        } catch (InvocationTargetException e) {
-            // ignored
-        } catch (ClassCastException e) {
-            // ignored
-        } catch (SecurityException e) {
-            // ignored
-        }
+        // Removed because use sun private classes - Levantovsky, MagicPlot
+//        displayX11 = false;
+//        displayLocal = false;
+//        try {
+//            Class<?> clazz = Class.forName("sun.awt.X11GraphicsEnvironment");
+//            displayX11 = true;
+//            Method method = clazz.getMethod("isDisplayLocal");
+//            Boolean result = (Boolean) method.invoke(null);
+//            displayLocal = result.booleanValue();
+//        } catch (ClassNotFoundException e) {
+//            // Windows case...
+//            displayLocal = true;
+//        } catch (IllegalAccessException e) {
+//            // ignored
+//        } catch (NoSuchMethodException e) {
+//            // ignored
+//        } catch (InvocationTargetException e) {
+//            // ignored
+//        } catch (ClassCastException e) {
+//            // ignored
+//        } catch (SecurityException e) {
+//            // ignored
+//        }
     }
 
     public PixelGraphics2D(Graphics graphics) {

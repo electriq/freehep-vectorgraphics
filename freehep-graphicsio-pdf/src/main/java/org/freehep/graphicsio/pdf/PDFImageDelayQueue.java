@@ -16,6 +16,7 @@ import java.util.Map;
  * 
  * @author Simon Fischer
  * @author Mark Donszelmann
+ * @author Alexander Levantovsky, MagicPlot
  * @version $Id: freehep-graphicsio-pdf/src/main/java/org/freehep/graphicsio/pdf/PDFImageDelayQueue.java 2fa79ac3a135 2007/01/09 18:18:57 duns $
  */
 public class PDFImageDelayQueue {
@@ -47,9 +48,9 @@ public class PDFImageDelayQueue {
         }
     }
 
-    private Map/* <RenderedImage,Entry> */<RenderedImage, Entry>imageMap;
+    private Map<RenderedImage, Entry>imageMap;
 
-    private List/* <entry> */<Entry>imageList;
+    private List<Entry>imageList;
 
     private PDFWriter pdf;
 
@@ -80,6 +81,7 @@ public class PDFImageDelayQueue {
 
                 PDFStream img = pdf.openStream(entry.name);
                 img.entry("Subtype", pdf.name("Image"));
+                img.entry("Interpolate", true);
                 if (entry.maskName != null)
                     img.entry("SMask", pdf.ref(entry.maskName));
                 img.image(entry.image, entry.bkg, entry.writeAs);

@@ -1,44 +1,22 @@
 // Copyright 2000-2007 FreeHEP
 package org.freehep.graphicsio.svg;
 
-import java.awt.BasicStroke;
-import java.awt.Color;
-import java.awt.Component;
-import java.awt.Dimension;
-import java.awt.Font;
-import java.awt.GradientPaint;
-import java.awt.Graphics;
-import java.awt.GraphicsConfiguration;
-import java.awt.Paint;
-import java.awt.Shape;
-import java.awt.Stroke;
-import java.awt.TexturePaint;
+import java.awt.*;
 import java.awt.font.TextAttribute;
 import java.awt.geom.AffineTransform;
 import java.awt.geom.GeneralPath;
 import java.awt.geom.PathIterator;
 import java.awt.geom.Point2D;
 import java.awt.geom.Rectangle2D;
+import java.awt.image.ColorModel;
 import java.awt.image.RenderedImage;
-import java.io.BufferedOutputStream;
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.OutputStream;
-import java.io.PrintWriter;
-import java.io.StringWriter;
+import java.io.*;
+import java.nio.charset.Charset;
 import java.text.DateFormat;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 import java.text.AttributedCharacterIterator.Attribute;
-import java.util.Arrays;
-import java.util.Date;
-import java.util.Enumeration;
-import java.util.Hashtable;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Properties;
-import java.util.Stack;
+import java.util.*;
 import java.util.zip.GZIPOutputStream;
 
 import org.freehep.graphics2d.font.FontUtilities;
@@ -61,7 +39,11 @@ import org.freehep.xml.util.XMLWriter;
  * The current implementation is based on REC-SVG11-20030114
  *
  * @author Mark Donszelmann
+ * @author Alexander Levantovsky, MagicPlot
  * @version $Id: freehep-graphicsio-svg/src/main/java/org/freehep/graphicsio/svg/SVGGraphics2D.java 4c4708a97391 2007/06/12 22:32:31 duns $
+ * 
+ * 18.04.2012 by A. Levantovsky:
+ * - Fixed not saved at all shape clipping
  */
 public class SVGGraphics2D extends AbstractVectorGraphicsIO {
 
@@ -85,6 +67,8 @@ public class SVGGraphics2D extends AbstractVectorGraphicsIO {
     /**
      * use style="font-size:20" instaed of font-size="20"
      * see {@link #style(java.util.Properties)} for details
+     * NOTE: With stylable=true the font size is theated in pt instead 
+     * of 'canvas units' in some applications (Firefox) - Levantovsky, MagicPlot
      */
     public static final String STYLABLE = rootKey + ".Stylable";
 
@@ -113,11 +97,12 @@ public class SVGGraphics2D extends AbstractVectorGraphicsIO {
     static {
         defaultProperties.setProperty(TRANSPARENT, true);
         defaultProperties.setProperty(BACKGROUND, false);
-        defaultProperties.setProperty(BACKGROUND_COLOR, Color.GRAY);
+        defaultProperties.setProperty(BACKGROUND_COLOR, Color.white);
 
         defaultProperties.setProperty(VERSION, VERSION_1_1);
         defaultProperties.setProperty(COMPRESS, false);
 
+        // NOTE: With stylable=true the font size is theated in pt instead of 'canvas units' in some applications - Levantovsky, MagicPlot
         defaultProperties.setProperty(STYLABLE, false);
 
         defaultProperties.setProperty(IMAGE_SIZE, new Dimension(0, 0)); // ImageSize
@@ -125,7 +110,8 @@ public class SVGGraphics2D extends AbstractVectorGraphicsIO {
         defaultProperties.setProperty(EXPORT_IMAGES, false);
         defaultProperties.setProperty(EXPORT_SUFFIX, "image");
 
-        defaultProperties.setProperty(WRITE_IMAGES_AS, ImageConstants.SMALLEST);
+        // PNG must be by default to increase quality
+        defaultProperties.setProperty(WRITE_IMAGES_AS, ImageConstants.PNG);
 
         defaultProperties.setProperty(FOR, "");
         defaultProperties.setProperty(TITLE, "");
@@ -133,7 +119,7 @@ public class SVGGraphics2D extends AbstractVectorGraphicsIO {
         defaultProperties.setProperty(CLIP, true);
 
         defaultProperties.setProperty(EMBED_FONTS, false);
-        defaultProperties.setProperty(TEXT_AS_SHAPES, true);
+        defaultProperties.setProperty(TEXT_AS_SHAPES, false);
     }
 
     public static Properties getDefaultProperties() {
@@ -165,7 +151,7 @@ public class SVGGraphics2D extends AbstractVectorGraphicsIO {
 
     private Stack<String> closeTags = new Stack<String>();
 
-    private int imageNumber = 0;
+    private Value imageNumber;
 
     private Value clipNumber;
 
@@ -205,8 +191,8 @@ public class SVGGraphics2D extends AbstractVectorGraphicsIO {
         initProperties(getDefaultProperties());
 
         this.filename = null;
-
         this.clipNumber = new Value().set(0);
+        this.imageNumber = new Value().set(0);
     }
 
     protected SVGGraphics2D(SVGGraphics2D graphics, boolean doRestoreOnDispose) {
@@ -221,6 +207,7 @@ public class SVGGraphics2D extends AbstractVectorGraphicsIO {
         gradients = graphics.gradients;
         textures = graphics.textures;
         clipNumber = graphics.clipNumber;
+        imageNumber = graphics.imageNumber;
         fontTable = graphics.fontTable;
     }
 
@@ -260,14 +247,14 @@ public class SVGGraphics2D extends AbstractVectorGraphicsIO {
             ros = new GZIPOutputStream(ros);
         }
 
-        os = new PrintWriter(ros, true);
+        // Always use UTF-8 encoding - Levantovsky, MagicPlot
+        os = new PrintWriter(new OutputStreamWriter(ros, Charset.forName("UTF-8")), true);
         fontTable = new SVGFontTable();
 
         // Do the bounding box calculation.
         setBoundingBox();
-        imageNumber = 0;
 
-        os.println("<?xml version=\"1.0\" standalone=\"no\"?>");
+        os.println("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\"?>");
         if (getProperty(VERSION).equals(VERSION_1_1)) {
             // no DTD anymore
         } else {
@@ -293,10 +280,13 @@ public class SVGGraphics2D extends AbstractVectorGraphicsIO {
             os.println("     xmlns:xlink=\"http://www.w3.org/1999/xlink\"");
             os.println("     xmlns:ev=\"http://www.w3.org/2001/xml-events\"");
         }
-        os.println("     x=\"" + x + "px\"");
-        os.println("     y=\"" + y + "px\"");
-        os.println("     width=\"" + w + "px\"");
-        os.println("     height=\"" + h + "px\"");
+        // Size in pt instead of px - Levantovsky, MagicPlot
+        // 'STYLABLE' property must be 'false' because font size is allways
+        // in pt in Firefox and some others if setted thouht CSS-like 'style' tag.
+        os.println("     x=\"" + x + "pt\"");
+        os.println("     y=\"" + y + "pt\"");
+        os.println("     width=\"" + w + "pt\"");
+        os.println("     height=\"" + h + "pt\"");
         os.println("     viewBox=\"" + bbx + " " + bby + " " + bbw + " " + bbh
                 + "\"");
         os.println("     >");
@@ -306,10 +296,10 @@ public class SVGGraphics2D extends AbstractVectorGraphicsIO {
         os.print(XMLWriter.normalizeText(getProperty(TITLE)));
         os.println("</title>");
 
-        String producer = getClass().getName();
-        if (!isDeviceIndependent()) {
-            producer += " " + version.substring(1, version.length() - 1);
-        }
+        String producer = "FreeHEP VectorGraphics";
+//        if (!isDeviceIndependent()) {
+//            producer += " " + version.substring(1, version.length() - 1);
+//        }
 
         os.print("<desc>");
         os.print("Creator: " + XMLWriter.normalizeText(getCreator()));
@@ -446,7 +436,7 @@ public class SVGGraphics2D extends AbstractVectorGraphicsIO {
             style.put("fill", "none");
             style.putAll(getStrokeProperties(getStroke(), false));
 
-            writePathIterator(path, style);
+            writePathIterator(path, shape, style);
         } else if (getStroke() != null) {
             // fill the shape created by stroke
             fill(getStroke().createStrokedShape(shape));
@@ -486,7 +476,7 @@ public class SVGGraphics2D extends AbstractVectorGraphicsIO {
             // no border
             style.put("stroke", "none");
 
-            writePathIterator(path, style);
+            writePathIterator(path, shape, style);
         }
     }
 
@@ -497,7 +487,7 @@ public class SVGGraphics2D extends AbstractVectorGraphicsIO {
      * @param pi PathIterator
      * @param style Properties for <g> tag
      */
-    private void writePathIterator(PathIterator pi, Properties style) {
+    private void writePathIterator(PathIterator pi, Shape shape, Properties style) {
         StringBuffer result = new StringBuffer();
 
         // write style
@@ -515,14 +505,14 @@ public class SVGGraphics2D extends AbstractVectorGraphicsIO {
 
         // test if clip intersects pi
         if (getClip() != null) {
-            GeneralPath gp = new GeneralPath();
-            gp.append(pi, true);
+            // Path iterator is already iterated and is 'done' at this moment, so use shape - Levantovsky, MagicPlot
             // create the stroked shape
             Stroke stroke = getStroke() == null? defaultStroke : getStroke();
-            Rectangle2D bounds = stroke.createStrokedShape(gp).getBounds();
+            Rectangle2D bounds = stroke.createStrokedShape(shape).getBounds();
             // clip should intersect the path
             // if clip contains the bounds completely, clipping is not needed
-            drawClipped = getClip().intersects(bounds) && !getClip().contains(bounds);
+            // and if clip does not cintain shape at all - it must be clipped too - Levantovsky, MagicPlot
+            drawClipped = getClip().intersects(bounds) || !getClip().contains(bounds);
         }
 
         if (drawClipped) {
@@ -551,6 +541,18 @@ public class SVGGraphics2D extends AbstractVectorGraphicsIO {
 
         StringBuffer result = new StringBuffer();
 
+        // write style (opacity) - Levantovsky, MagicPlot
+        Properties style = new Properties();
+        Composite composite = getComposite();
+        if (composite instanceof AlphaComposite)
+        {
+          AlphaComposite ac = (AlphaComposite)composite;
+          style.put("opacity", Float.toString(ac.getAlpha()));
+        }
+        result.append("<g ");
+        result.append(style(style));
+        result.append(">\n  ");
+        
         result.append("<image x=\"0\" y=\"0\" " + "width=\"");
         result.append(image.getWidth());
         result.append("\" " + "height=\"");
@@ -594,19 +596,21 @@ public class SVGGraphics2D extends AbstractVectorGraphicsIO {
         }
 
         if (isProperty(EXPORT_IMAGES)) {
-            imageNumber++;
-
             // create filenames
             if (filename == null) {
                 writeWarning("SVG: cannot write embedded images, since SVGGraphics2D");
                 writeWarning("     was created from an OutputStream rather than a File.");
                 return;
             }
+            
+            int imageNum = imageNumber.getInt() + 1;
+            imageNumber.set(imageNum);
+            
             int pos = filename.lastIndexOf(File.separatorChar);
             String dirName = (pos < 0) ? "" : filename.substring(0, pos + 1);
             String imageName = (pos < 0) ? filename : filename
                     .substring(pos + 1);
-            imageName += "." + getProperty(EXPORT_SUFFIX) + "-" + imageNumber
+            imageName += "." + getProperty(EXPORT_SUFFIX) + "-" + imageNum
                     + "." + encode;
 
             result.append(imageName);
@@ -632,6 +636,9 @@ public class SVGGraphics2D extends AbstractVectorGraphicsIO {
         }
 
         result.append("\"/>");
+
+        // close style
+        result.append("\n</g> <!-- drawing style -->");
 
         os.println(getTransformedString(getTransform(),
             getClippedString(getTransformedString(xform, result
@@ -663,6 +670,32 @@ public class SVGGraphics2D extends AbstractVectorGraphicsIO {
             style.put("fill", "none");
         }
         style.put("stroke", "none");
+        double tracking = ((Number)getTextAttribute(TextAttribute.TRACKING)).doubleValue();
+        style.put("letter-spacing", Double.toString(tracking * getFont().getSize2D()));
+        
+        Object underline = getTextAttribute(TextAttribute.UNDERLINE);
+        if (underline instanceof Integer && ((Integer)underline).intValue() >= 0) {
+            // underline style, only supported by CSS 3
+            if (TextAttribute.UNDERLINE_LOW_DOTTED.equals(underline)) {
+                style.put("text-underline-style", "dotted");
+            } else if (TextAttribute.UNDERLINE_LOW_DASHED.equals(underline)) {
+                style.put("text-underline-style", "dashed");
+            } else if (TextAttribute.UNDERLINE_ON.equals(underline)) {
+                style.put("text-underline-style", "solid");
+            }
+            // the underline itself, supported by CSS 2
+            style.put("text-decoration", "underline");
+        }
+
+        Object strikethrough = getTextAttribute(TextAttribute.STRIKETHROUGH);
+        if (strikethrough != null && (Boolean)strikethrough) {
+            // is the property allready witten?
+            if  (underline == null) {
+                style.put("text-decoration", "underline, line-through");
+            } else {
+                style.put("text-decoration", "line-through");
+            }
+        }
 
         // convert tags to string values
         str = XMLWriter.normalizeText(str);
@@ -680,17 +713,7 @@ public class SVGGraphics2D extends AbstractVectorGraphicsIO {
                 getTransformedString(
                     // text offset
                     new AffineTransform(1, 0, 0, 1, x, y),
-                    getTransformedString(
-                        // font transformation and text
-                        getFont().getTransform(),
-                        "<text "
-                            // style
-                            + style(style)
-                            // coordiantes
-                            + " x=\"0\" y=\"0\">"
-                            // text
-                            + str
-                            + "</text>")))));
+                    getTransformedString(getFont().getTransform(), "<text " + style(style) + " x=\"0\" y=\"0\">" + str + "</text>")))));
     }
 
     /**
@@ -706,13 +729,10 @@ public class SVGGraphics2D extends AbstractVectorGraphicsIO {
         Properties result = new Properties();
 
         // attribute for font properties
-        Map /*<TextAttribute, ?>*/<Attribute, Object> attributes = FontUtilities.getAttributes(font);
-
-        // dialog.bold -> Helvetica with TextAttribute.WEIGHT_BOLD
-        SVGFontTable.normalize(attributes);
+        Map<Attribute, Object> attributes = FontUtilities.getAttributes(font);
 
         // family
-        result.put("font-family", attributes.get(TextAttribute.FAMILY));
+        result.put("font-family", FontUtilities.getWindowsFontFamily((String)attributes.get(TextAttribute.FAMILY)));
 
         // weight
         if (TextAttribute.WEIGHT_BOLD.equals(attributes.get(TextAttribute.WEIGHT))) {
@@ -726,30 +746,6 @@ public class SVGGraphics2D extends AbstractVectorGraphicsIO {
             result.put("font-style", "italic");
         } else {
             result.put("font-style", "normal");
-        }
-
-        Object ul = attributes.get(TextAttribute.UNDERLINE);
-        if (ul != null) {
-            // underline style, only supported by CSS 3
-            if (TextAttribute.UNDERLINE_LOW_DOTTED.equals(ul)) {
-                result.put("text-underline-style", "dotted");
-            } else if (TextAttribute.UNDERLINE_LOW_DASHED.equals(ul)) {
-                result.put("text-underline-style", "dashed");
-            } else if (TextAttribute.UNDERLINE_ON.equals(ul)) {
-                result.put("text-underline-style", "solid");
-            }
-
-            // the underline itself, supported by CSS 2
-            result.put("text-decoration", "underline");
-        }
-
-        if (attributes.get(TextAttribute.STRIKETHROUGH) != null) {
-            // is the property allready witten?
-            if  (ul == null) {
-                result.put("text-decoration", "underline, line-through");
-            } else {
-                result.put("text-decoration", "line-through");
-            }
         }
 
         Float size = (Float) attributes.get(TextAttribute.SIZE);
@@ -1208,6 +1204,7 @@ public class SVGGraphics2D extends AbstractVectorGraphicsIO {
         }
 
         StringBuffer result = new StringBuffer();
+        // NOTE: With stylable=true the font size is theated in pt instead of 'canvas units' in some applications
         boolean styleable = isProperty(STYLABLE);
 
         // embed everything in a "style" attribute

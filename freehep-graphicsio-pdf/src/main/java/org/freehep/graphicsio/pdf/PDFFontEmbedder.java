@@ -3,8 +3,10 @@ package org.freehep.graphicsio.pdf;
 
 import java.awt.font.FontRenderContext;
 import java.io.IOException;
+import java.util.ArrayList;
 
 import org.freehep.graphics2d.font.CharTable;
+import org.freehep.graphics2d.font.CustomCharTable;
 import org.freehep.graphicsio.font.FontEmbedder;
 
 /**
@@ -17,6 +19,7 @@ import org.freehep.graphicsio.font.FontEmbedder;
  * </ul>
  * 
  * @author Simon Fischer
+ * @author Alexander Levantovsky, MagicPlot
  * @version $Id: freehep-graphicsio-pdf/src/main/java/org/freehep/graphicsio/pdf/PDFFontEmbedder.java f493ff6e61b2 2005/12/01 18:46:43 duns $
  */
 public abstract class PDFFontEmbedder extends FontEmbedder {
@@ -69,21 +72,67 @@ public abstract class PDFFontEmbedder extends FontEmbedder {
 
         fontDict.entry("FirstChar", 0);
         fontDict.entry("LastChar", 255);
-        // fontDict.entry("Encoding", pdf.ref(reference+"Encoding"));
         fontDict.entry("Encoding", redundanceTracker.getReference(
                 getEncodingTable(), PDFCharTableWriter.getInstance()));
         fontDict.entry("Widths", pdf.ref(reference + "Widths"));
+        if (getEncodingTable() instanceof CustomCharTable)
+            fontDict.entry("ToUnicode", pdf.ref(reference + "ToUnicode"));
 
         addAdditionalEntries(fontDict);
 
         pdf.close(fontDict);
 
         addAdditionalInitDicts();
+
+        if (getEncodingTable() instanceof CustomCharTable)
+            writeToUnicode(pdf, reference + "ToUnicode", getEncodingTable());
     }
 
     protected void closeEmbedFont() {
     }
+    
+    public static void writeToUnicode(PDFWriter pdf, String ref, CharTable charTable) throws IOException {
+        PDFStream toUnicode = pdf.openStream(ref);
+        
+        toUnicode.println("/CIDInit /ProcSet findresource begin");
+        toUnicode.println("12 dict begin");
+        toUnicode.println("begincmap");
+        
+        toUnicode.println("/CMapType 2 def");
+        toUnicode.println("/CMapName /" + ref + " def");
+        
+        toUnicode.println("1 begincodespacerange");
+        toUnicode.println("<00><FF>");
+        toUnicode.println("endcodespacerange");
+        
+        ArrayList<String> bfchars = new ArrayList<String>();
+        for (int i = 0; i < 100; i++) {
+            String name = charTable.toName(i);
+            if (name != null) {
+                char unicode = charTable.toUnicode(name);
+                bfchars.add("<" + CustomCharTable.unicodeToHex(i, 2) + "><" + CustomCharTable.unicodeToHex(unicode, 4) + ">");
+            }
+        }
+        
+        int charsWritten = 0;
+        while (charsWritten < bfchars.size()) {
+            int writeNow = Math.min(bfchars.size() - charsWritten, 100);
+            
+            toUnicode.println(writeNow + " beginbfchar");
+            for (int i = 0; i < writeNow; i++) {
+                toUnicode.println(bfchars.get(charsWritten++));
+            }
+            toUnicode.println("endbfchar");
+        }
 
+        toUnicode.println("endcmap");
+        toUnicode.println("CMapName currentdict /CMap defineresource pop");
+        toUnicode.println("end");
+        toUnicode.println("end");
+        
+        pdf.close(toUnicode);
+    }
+            
     protected void writeWidths(double[] widths) throws IOException {
         Object[] widthsObj = new Object[256];
         for (int i = 0; i < widthsObj.length; i++) {
@@ -93,28 +142,10 @@ public abstract class PDFFontEmbedder extends FontEmbedder {
     }
 
     protected void writeEncoding(CharTable charTable) throws IOException {
-        // writeEncoding(pdf, reference+"Encoding", charTable);
-    }
-
-    public static void writeEncoding(PDFWriter pdf, String ref,
-            CharTable charTable) throws IOException {
-        PDFDictionary encoding = pdf.openDictionary(ref);
-        encoding.entry("Type", pdf.name("Encoding"));
-
-        Object[] differences = new Object[257];
-        differences[0] = new Integer(0);
-        for (int i = 0; i < 256; i++) {
-            String charName = charTable.toName(i);
-            differences[i + 1] = (charName != null) ? pdf.name(charName) : pdf
-                    .name(NOTDEF);
-        }
-        encoding.entry("Differences", differences);
-
-        pdf.close(encoding);
+        // NOT USED!!! See PDFCharTableWriter.writeObject() method - Levantovsky
     }
 
     protected String createCharacterReference(String characterName) {
         return "Glyph_" + reference + ":" + characterName;
     }
-
 }

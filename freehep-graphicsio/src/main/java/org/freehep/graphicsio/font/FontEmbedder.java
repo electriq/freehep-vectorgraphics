@@ -33,7 +33,8 @@ import org.freehep.graphics2d.font.CharTable;
  * </ul>
  * 
  * @author Simon Fischer
- * @version $Id: freehep-graphicsio/src/main/java/org/freehep/graphicsio/font/FontEmbedder.java d9a2ef8950b1 2006/03/03 19:08:18 duns $
+ * @author Alexander Levantovsky, MagicPlot
+ * @version1 $Id: freehep-graphicsio/src/main/java/org/freehep/graphicsio/font/FontEmbedder.java d9a2ef8950b1 2006/03/03 19:08:18 duns $
  */
 public abstract class FontEmbedder extends FontIncluder {
 
@@ -71,81 +72,26 @@ public abstract class FontEmbedder extends FontIncluder {
 
     protected abstract void closeEmbedFont() throws IOException;
 
-    private double[] widths;
-
-    private GlyphVector glyphs;
-
-    private Font font; // FONTHACK
-
     public FontEmbedder(FontRenderContext context) {
         super(context);
     }
-
-    protected double[] getAdvanceWidths() {
-        if (widths == null) {
-            // figure out the widths of the characters if not yet done
-            widths = new double[256];
-            for (int i = 0; i < widths.length; i++) {
-                widths[i] = glyphs.getGlyphMetrics(i).getAdvance();
-                // in case of undefined character set to width of undefined
-                // symbol
-                if (getCharName(i) == null) {
-                    widths[i] = getUndefinedWidth();
-                }
-            }
-        }
-        return widths;
-    }
-
-    protected double getAdvanceWidth(int character) {
-        return getAdvanceWidths()[character];
-    }
-
-    protected Shape getGlyph(int i) {
-        // This one-line implementation produces different results under JDK 1.3
-        // and 1.4
-        // return glyphs.getGlyphOutline(i);
-
-        // The substitute code attempts to work around this by using defensive
-        // programming
-        // See code marked FONTHACK elsewhere in this file
-        // Create a GlyphVector for this single character.
-        FontRenderContext orig = getContext();
-        FontRenderContext frc = new FontRenderContext(null, orig
-                .isAntiAliased(), orig.usesFractionalMetrics());
-        Shape shape = font.createGlyphVector(frc, new char[] { getUnicode(i) })
-                .getGlyphOutline(0);
-        return orig.getTransform().createTransformedShape(shape);
-    }
-
-    protected GlyphMetrics getGlyphMetrics(int i) {
-        return glyphs.getGlyphMetrics(i);
-    }
-
-    public void includeFont(Font font, CharTable charTable, String name)
+    
+    @Override
+    public void includeFont(Font font, CharTable charTable, String name, boolean[] codesUsed)
             throws IOException {
 
-        glyphs = null;
-        widths = null;
-        // FONTHACK: Needed by hacked version of getGlyph()
-        this.font = font;
-
-        super.includeFont(font, charTable, name);
-
-        this.glyphs = font.createGlyphVector(getContext(), getUnicode());
-
+        super.includeFont(font, charTable, name, codesUsed);
         writeWidths(getAdvanceWidths());
 
         try {
-
             openGlyphs();
 
             // write the glyphs
             for (int i = 0; i < 256; i++) {
-                if (getCharName(i) != null) {
+                if (isCodeUsed(i) && getCharName(i) != null) {
                     writeGlyph(getCharName(i), getGlyph(i), getGlyphMetrics(i));
                 }
-            }
+            }           
 	    writeGlyph(NOTDEF, createUndefined(), null);
 
             closeGlyphs();
@@ -155,12 +101,12 @@ public abstract class FontEmbedder extends FontIncluder {
             e.printStackTrace();
         }
     }
-
+    
     private Shape createUndefined() {
         GeneralPath ud = new GeneralPath(GeneralPath.WIND_EVEN_ODD, 10);
-        ud.append(new Rectangle2D.Double(0, 0, FONT_SIZE, FONT_SIZE), false);
-        ud.append(new Rectangle2D.Double(FONT_SIZE / 20, FONT_SIZE / 20,
-                18 * FONT_SIZE / 20, 18 * FONT_SIZE / 20), false);
+        ud.append(new Rectangle2D.Double(3 * FONT_SIZE / 20, -16 * FONT_SIZE / 20, 14 * FONT_SIZE / 20, 18 * FONT_SIZE / 20), false);
+        ud.append(new Rectangle2D.Double(4 * FONT_SIZE / 20, -15 * FONT_SIZE / 20,
+                12 * FONT_SIZE / 20, 16 * FONT_SIZE / 20), false);
         return ud;
     }
 }

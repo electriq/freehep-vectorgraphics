@@ -12,6 +12,7 @@ import org.freehep.swing.layout.TableLayout;
 /**
  * 
  * @author Mark Donszelmann
+ * @author Alexander Levantovsky, MagicPlot
  * @version $Id: freehep-graphicsio/src/main/java/org/freehep/graphicsio/exportchooser/OptionPanel.java 5641ca92a537 2005/11/26 00:15:35 duns $
  */
 public class OptionPanel extends JPanel implements Options {
@@ -22,8 +23,7 @@ public class OptionPanel extends JPanel implements Options {
     public OptionPanel(String title) {
         super(new TableLayout());
         if (title != null)
-            setBorder(BorderFactory.createTitledBorder(BorderFactory
-                    .createEtchedBorder(), title));
+            setBorder(BorderFactory.createTitledBorder(title));
     }
 
     public void setEnabled(boolean enable) {
